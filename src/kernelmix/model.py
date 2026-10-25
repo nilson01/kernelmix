@@ -1,0 +1,326 @@
+"""Dense marginalized BKMR sampler for Gaussian and binary/probit outcomes.
+
+The statistical target follows bkmr 0.2.2, with different MH proposal paths.
+No global random state is used and chains run sequentially.
+"""
+import math
+import time
+from dataclasses import asdict
+
+import numpy as np
+from scipy.linalg import cho_solve, solve_triangular
+from scipy.stats import truncnorm
+
+from ._input import prepare_data
+from ._kernel import covariance_components
+from .priors import Prior, gamma_logpdf
+
+
+def _count(value, name, minimum):
+    if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, np.integer)) or value < minimum:
+        raise ValueError(f'{name} must be an integer >= {minimum}')
+    return int(value)
+
+
+def _positive(value, name):
+    if isinstance(value, (bool, np.bool_)) or not np.isscalar(value) or not np.isfinite(value) or value <= 0:
+        raise ValueError(f'{name} must be finite and positive')
+    return float(value)
+
+
+def _initial(initial, data, prior, family, selection, fixed, rng):
+    n, m = data['Z'].shape
+    p = data['X'].shape[1]
+    if initial is None:
+        initial = {}
+    if not isinstance(initial, dict):
+        raise ValueError('initial must be a dictionary shared by chains, or None')
+    allowed = {'beta', 'r', 'lambda', 'sigma2', 'delta', 'pi', 'ystar'}
+    if set(initial) - allowed:
+        raise ValueError(f'unknown initial parameters: {sorted(set(initial) - allowed)}')
+    delta = np.ones(m, dtype=bool)
+    if selection == 'group':
+        delta[:] = False
+        for label in dict.fromkeys(data['groups']):
+            members = np.flatnonzero(np.asarray(data['groups']) == label)
+            delta[rng.choice(members)] = True
+    if 'delta' in initial:
+        d = np.asarray(initial['delta'])
+        if d.shape != (m,) or not np.isin(d, [0, 1]).all():
+            raise ValueError('initial delta must be boolean/0-1 with one entry per exposure')
+        delta = d.astype(bool)
+    if selection == 'none' and not delta.all():
+        raise ValueError('initial delta must be all true without selection')
+    if selection == 'group':
+        for label in dict.fromkeys(data['groups']):
+            if delta[np.asarray(data['groups']) == label].sum() > 1:
+                raise ValueError('initial delta includes multiple exposures in one group')
+    if fixed is not None:
+        if 'r' in initial and not np.array_equal(np.asarray(initial['r']), fixed):
+            raise ValueError('initial r conflicts with r_fixed')
+        r = fixed.copy()
+        delta = r > 0
+    elif 'r' in initial:
+        r = np.asarray(initial['r'], dtype=float).copy()
+        if r.shape != (m,) or not np.isfinite(r).all() or (r < 0).any():
+            raise ValueError('initial r must be a finite nonnegative exposure vector')
+        if (r[~delta] != 0).any() or any(not np.isfinite(prior.log_r(x)) for x in r[delta]):
+            raise ValueError('initial r must be zero when excluded, and inside the positive prior support when active')
+    else:
+        r = np.array([prior.sample_r(rng) if active else 0.0 for active in delta])
+    beta = np.asarray(initial.get('beta', np.zeros(p)), dtype=float).copy()
+    if beta.shape != (p,) or not np.isfinite(beta).all():
+        raise ValueError('initial beta must be finite with one entry per design column')
+    lambda_ = _positive(initial.get('lambda', prior.lambda_mean), 'initial lambda')
+    default_variance = max(float(np.var(data['y'])), 0.1)
+    sigma2 = _positive(initial.get('sigma2', 1.0 if family == 'binomial' else default_variance), 'initial sigma2')
+    if family == 'binomial' and sigma2 != 1:
+        raise ValueError('binomial sigma2 is fixed at 1')
+    pi = _positive(initial.get('pi', 1.0 if selection == 'none' else 0.5), 'initial pi')
+    if selection == 'none' and pi != 1 or selection != 'none' and not pi < 1:
+        raise ValueError('initial pi must equal 1 without selection, or lie in (0,1) with selection')
+    latent = None
+    if family == 'binomial':
+        latent = np.asarray(initial.get('ystar', np.where(data['y'] == 1, 0.5, -0.5)), dtype=float).copy()
+        if latent.shape != (n,) or not np.isfinite(latent).all() or not np.all(np.where(data['y'] == 1, latent > 0, latent < 0)):
+            raise ValueError('initial ystar must be finite and have the observed binary signs')
+    elif 'ystar' in initial:
+        raise ValueError('initial ystar is only supported for binomial outcomes')
+    return beta, r, lambda_, sigma2, delta, pi, latent
+
+
+def _log_likelihood(lower, residual, sigma2):
+    whitened = solve_triangular(lower, residual, lower=True, check_finite=False)
+    return -np.log(np.diag(lower)).sum() - float(whitened @ whitened) / (2 * sigma2)
+
+
+def _latent_sweep(y, latent, mean, lower, rng):
+    # Coordinate Gibbs for the marginal truncated multivariate normal. Independent
+    # univariate draws with marginal sd would discard the GP correlations.
+    precision = cho_solve((lower, True), np.eye(len(y)), check_finite=False)
+    residual = latent - mean
+    for i in rng.permutation(len(y)):
+        conditional_mean = mean[i] - (precision[i] @ residual - precision[i, i] * residual[i]) / precision[i, i]
+        sd = math.sqrt(1 / precision[i, i])
+        boundary = -conditional_mean / sd
+        a, b = (boundary, np.inf) if y[i] == 1 else (-np.inf, boundary)
+        latent[i] = truncnorm.rvs(a, b, loc=conditional_mean, scale=sd, random_state=rng)
+        residual[i] = latent[i] - mean[i]
+    return latent
+
+
+def _check_probit_design(y, design):
+    """Reject separated flat-prior designs using a column-unit invariant LP.
+
+    Positive column rescaling preserves the set of attainable linear
+    predictors. Only this diagnostic uses rescaled columns; the model and its
+    coefficient parameterization retain the caller's original design.
+    """
+    if not design.shape[1]:
+        return
+    from scipy.optimize import linprog
+
+    scales = np.max(np.abs(design), axis=0)
+    if not np.isfinite(scales).all() or (scales == 0).any():
+        raise ValueError('probit adjustment design must have finite nonzero columns')
+    signed_design = (2 * y - 1)[:, None] * (design / scales)
+    # In the signed-margin cone, a nonzero predictor with nonnegative margins
+    # has positive summed margin. The coefficient box bounds the optimization
+    # without excluding such a direction. Scaling first prevents solver
+    # tolerances and the objective cutoff from depending on covariate units.
+    separation = linprog(-signed_design.sum(axis=0), A_ub=-signed_design,
+                         b_ub=np.zeros(len(y)), bounds=[(-1, 1)] * design.shape[1],
+                         method='highs')
+    if not separation.success:
+        raise ValueError('could not establish nonseparation for the flat probit beta prior')
+    if -separation.fun > 1e-8:
+        raise ValueError('separated binomial adjustment design has an improper posterior under the flat beta prior')
+
+
+def fit(y, Z, X=None, *, family='gaussian', draws=1000, warmup=1000,
+        chains=4, thin=1, seed=None, standardize=True, intercept=True,
+        selection='none', groups=None, prior=None, r_fixed=None, missing='raise',
+        exposure_names=None, covariate_names=None, initial=None, proposal_scales=None):
+    """Fit dense Bayesian kernel machine regression using sequential chains.
+
+    ``draws`` counts retained states per chain after ``warmup`` and ``thin``.
+    The probit model fixes residual variance at one. ``selection='group'``
+    permits at most one exposure per included group. Relevance bounds and
+    defaults are documented in :class:`Prior`. Dense storage/solves require
+    quadratic memory and cubic time in the retained sample size.
+
+    ``initial`` is a shared dictionary (beta, r, lambda, sigma2, delta, pi,
+    and binomial ystar). ``proposal_scales`` accepts positive log-scale
+    standard deviations ``r`` and ``lambda`` (defaults .3). They are fixed,
+    including after warmup. Fitting does not establish convergence.
+    """
+    start = time.perf_counter()
+    draws, warmup, chains, thin = (_count(draws, 'draws', 2), _count(warmup, 'warmup', 0),
+                                   _count(chains, 'chains', 1), _count(thin, 'thin', 1))
+    if seed is not None:
+        seed = _count(seed, 'seed', 0)
+    if selection not in ('none', 'component', 'group'):
+        raise ValueError("selection must be 'none', 'component', or 'group'")
+    if selection == 'group' and groups is None:
+        raise ValueError('group selection requires groups')
+    if selection != 'group' and groups is not None:
+        raise ValueError('groups may only be supplied with group selection')
+    if prior is None:
+        prior = Prior()
+    if isinstance(prior, dict):
+        prior = Prior(**prior)
+    if not isinstance(prior, Prior):
+        raise ValueError('prior must be a Prior, dictionary, or None')
+    scales = {'r': 0.3, 'lambda': 0.3}
+    if proposal_scales is not None:
+        if not isinstance(proposal_scales, dict) or set(proposal_scales) - set(scales):
+            raise ValueError("proposal_scales accepts only 'r' and 'lambda'")
+        scales.update(proposal_scales)
+    scales = {key: _positive(value, f'proposal_scales[{key}]') for key, value in scales.items()}
+    data = prepare_data(y, Z, X, family=family, standardize=standardize, intercept=intercept,
+                        missing=missing, exposure_names=exposure_names,
+                        covariate_names=covariate_names, groups=groups)
+    n, m = data['Z'].shape
+    p = data['X'].shape[1]
+    fixed = None
+    if r_fixed is not None:
+        fixed = np.asarray(r_fixed, dtype=float).copy()
+        if fixed.shape != (m,) or not np.isfinite(fixed).all() or (fixed < 0).any():
+            raise ValueError('r_fixed must be a finite nonnegative vector with one entry per exposure')
+        if selection != 'none':
+            raise ValueError('r_fixed disallows variable selection')
+    # A flat beta prior is improper for separated probit designs. Check the
+    # linear adjustment design; the Gaussian-process prior is proper.
+    if family == 'binomial' and p:
+        _check_probit_design(data['y'], data['X'])
+    # Conservative allocation guards for the exact dense implementation.
+    if 8 * n * n * 8 > 512 * 1024 ** 2:
+        raise ValueError('dense covariance working storage exceeds the 512 MiB safety budget; use fewer observations')
+    saved_bytes = chains * draws * (8 * (p + m + 3 + (n if family == 'binomial' else 0)) + m)
+    if saved_bytes > 1024 ** 3:
+        raise ValueError('saved posterior arrays exceed the 1 GiB safety budget; reduce draws/chains or fit size')
+    shape = (chains, draws)
+    samples = dict(beta=np.empty(shape + (p,)), r=np.empty(shape + (m,)),
+                   lambda_=np.empty(shape), sigma2=np.empty(shape),
+                   delta=np.empty(shape + (m,), dtype=bool), pi=np.empty(shape))
+    samples['lambda'] = samples.pop('lambda_')
+    if family == 'binomial':
+        samples['ystar'] = np.empty(shape + (n,))
+    selection_units = ([np.array([j]) for j in range(m)] if selection == 'component' else
+                       [np.flatnonzero(np.asarray(data['groups']) == label) for label in dict.fromkeys(data['groups'])]
+                       if selection == 'group' else [])
+    seed_sequence = np.random.SeedSequence(seed)
+    children = seed_sequence.spawn(chains)
+    chain_info = []
+    for chain_index, child in enumerate(children):
+        rng = np.random.default_rng(child)
+        beta, r, lambda_, sigma2, delta, pi, latent = _initial(initial, data, prior, family, selection, fixed, rng)
+        _, _, lower = covariance_components(data['Z'], r, lambda_)
+        counts = {key: {'accepted': 0, 'proposed': 0, 'warmup_accepted': 0, 'warmup_proposed': 0}
+                  for key in ('lambda', 'r', 'selection')}
+        saved = 0
+        for iteration in range(warmup + draws * thin):
+            is_warmup = iteration < warmup
+            if family == 'binomial':
+                latent = _latent_sweep(data['y'], latent, data['X'] @ beta, lower, rng)
+                continuous = latent
+            else:
+                continuous = data['y']
+            if p:
+                solved_x = cho_solve((lower, True), data['X'], check_finite=False)
+                precision_beta = data['X'].T @ solved_x
+                beta_lower = np.linalg.cholesky((precision_beta + precision_beta.T) / 2)
+                beta_mean = cho_solve((beta_lower, True), solved_x.T @ continuous, check_finite=False)
+                beta = beta_mean + math.sqrt(sigma2) * solve_triangular(beta_lower.T, rng.normal(size=p), lower=False, check_finite=False)
+            residual = continuous - data['X'] @ beta
+            if family == 'gaussian':
+                white = solve_triangular(lower, residual, lower=True, check_finite=False)
+                rate = prior.sigma2_rate + float(white @ white) / 2
+                sigma2 = 1 / rng.gamma(prior.sigma2_shape + n / 2, 1 / rate)
+                if not np.isfinite(sigma2) or sigma2 <= 0:
+                    raise FloatingPointError('sigma2 update overflowed; rescale the outcome/prior')
+            current_ll = _log_likelihood(lower, residual, sigma2)
+
+            def attempt(candidate_r, candidate_lambda, log_adjustment, kind):
+                nonlocal r, lambda_, lower, current_ll
+                counter = counts[kind]
+                counter['warmup_proposed' if is_warmup else 'proposed'] += 1
+                if not np.isfinite(log_adjustment):
+                    return False
+                try:
+                    _, _, candidate_lower = covariance_components(data['Z'], candidate_r, candidate_lambda)
+                    candidate_ll = _log_likelihood(candidate_lower, residual, sigma2)
+                except (ValueError, FloatingPointError, np.linalg.LinAlgError):
+                    return False
+                ratio = candidate_ll - current_ll + log_adjustment
+                if np.isnan(ratio):
+                    return False
+                uniform = rng.random()
+                if uniform == 0 or math.log(uniform) < min(0.0, ratio):
+                    r, lambda_, lower, current_ll = candidate_r.copy(), candidate_lambda, candidate_lower, candidate_ll
+                    counter['warmup_accepted' if is_warmup else 'accepted'] += 1
+                    return True
+                return False
+
+            log_lambda = math.log(lambda_) + rng.normal(scale=scales['lambda'])
+            with np.errstate(over='ignore', under='ignore'):
+                candidate = float(np.exp(log_lambda))
+            if np.isfinite(candidate) and candidate > 0:
+                adjustment = (gamma_logpdf(candidate, prior.lambda_mean, prior.lambda_sd)
+                              - gamma_logpdf(lambda_, prior.lambda_mean, prior.lambda_sd)
+                              + log_lambda - math.log(lambda_))
+                attempt(r, candidate, adjustment, 'lambda')
+            else:
+                attempt(r, lambda_, -np.inf, 'lambda')
+            if selection != 'none':
+                for unit in selection_units:
+                    proposed_delta = delta.copy()
+                    candidate_r = r.copy()
+                    proposed_delta[unit] = False
+                    candidate_r[unit] = 0
+                    if rng.random() < pi:
+                        member = int(rng.choice(unit))
+                        proposed_delta[member] = True
+                        candidate_r[member] = prior.sample_r(rng)
+                    # Independence proposal is the exact conditional prior:
+                    # Bernoulli(pi), uniform member, then relevance prior. Its
+                    # forward/reverse densities cancel the entire prior ratio.
+                    if attempt(candidate_r, lambda_, 0.0, 'selection'):
+                        delta = proposed_delta
+                included = sum(bool(delta[unit].any()) for unit in selection_units)
+                pi = float(rng.beta(prior.inclusion_alpha + included,
+                                    prior.inclusion_beta + len(selection_units) - included))
+                if not 0 < pi < 1:
+                    raise FloatingPointError('inclusion update hit a floating-point boundary; use less extreme Beta hyperparameters')
+            if fixed is None:
+                for j in np.flatnonzero(delta):
+                    log_r = math.log(r[j]) + rng.normal(scale=scales['r'])
+                    candidate_r = r.copy()
+                    with np.errstate(over='ignore', under='ignore'):
+                        proposed_r = float(np.exp(log_r))
+                    if np.isfinite(proposed_r) and proposed_r > 0:
+                        candidate_r[j] = proposed_r
+                        adjustment = prior.log_r(candidate_r[j]) - prior.log_r(r[j]) + log_r - math.log(r[j])
+                        attempt(candidate_r, lambda_, adjustment, 'r')
+                    else:
+                        attempt(candidate_r, lambda_, -np.inf, 'r')
+            if not is_warmup and (iteration - warmup + 1) % thin == 0:
+                for key, value in (('beta', beta), ('r', r), ('lambda', lambda_), ('sigma2', sigma2), ('delta', delta), ('pi', pi)):
+                    samples[key][chain_index, saved] = value
+                if family == 'binomial':
+                    samples['ystar'][chain_index, saved] = latent
+                saved += 1
+        for counter in counts.values():
+            counter['rate'] = counter['accepted'] / counter['proposed'] if counter['proposed'] else None
+            counter['warmup_rate'] = counter['warmup_accepted'] / counter['warmup_proposed'] if counter['warmup_proposed'] else None
+        chain_info.append({'chain': chain_index, 'acceptance': counts,
+                           'seed_spawn_key': list(child.spawn_key)})
+    settings = dict(family=family, draws=draws, warmup=warmup, chains=chains, thin=thin,
+                    seed=seed, standardize=bool(standardize), intercept=bool(intercept),
+                    selection=selection, prior=asdict(prior), proposal_scales=scales,
+                    r_fixed=None if fixed is None else fixed.tolist())
+    sampling_info = dict(runtime_seconds=time.perf_counter() - start, chains=chain_info,
+                         algorithm='dense marginal MH/Gibbs', proposal_adaptation=False,
+                         seed_entropy=int(seed_sequence.entropy))
+    from .result import BKMRFit
+    return BKMRFit(data, samples, settings, sampling_info)

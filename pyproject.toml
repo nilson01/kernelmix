@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kernelmix"
+version = "0.1.0"
+description = "Bayesian kernel machine regression for exposure mixtures"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-2.0-only"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{name = "Nilson Chapagain"}]
+dependencies = ["numpy>=1.24", "scipy>=1.10"]
+
+[project.optional-dependencies]
+docs = ["pypandoc_binary>=1.15"]
+plots = ["matplotlib>=3.7"]
+dev = ["pytest>=7.4", "ruff>=0.9", "build>=1.2", "twine>=5", "matplotlib>=3.7"]
+
+[project.urls]
+Repository = "https://github.com/nilson01/kernelmix"
+Issues = "https://github.com/nilson01/kernelmix/issues"
+Documentation = "https://github.com/nilson01/kernelmix/tree/main/docs"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
