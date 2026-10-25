@@ -16,3 +16,5 @@ have not endorsed this package. Source papers and their figures are not bundled.
 
 KernelMix code and documentation are distributed under GNU GPL version 2 only,
 without warranty. See LICENSE. NumPy, SciPy and Matplotlib retain their own licenses.
+
+Additional kernel definitions follow Rasmussen and Williams (2006), Gaussian Processes for Machine Learning, chapter4. Random Fourier features follow Rahimi and Recht (2007). Predictive processes follow Banerjee etal. (2008), DOI10.1111/j.1467-9868.2008.00663.x. Residual variance/correlation and survival data conventions are separately cited in the structured-model guide. These are model ingredients, not claims of new estimators or complete upstream interfaces.

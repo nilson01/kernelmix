@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "Please cite KernelMix and the method papers listed in the README."
 title: "KernelMix: Bayesian kernel machine regression for exposure mixtures"
 type: software
-version: 0.2.0
+version: 0.3.0
 authors:
   - family-names: Chapagain
     given-names: Nilson

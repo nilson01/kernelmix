@@ -32,6 +32,9 @@ that a platform passed.
 | NB2 dispersion / survival baseline | Check conditional scalar/Gamma targets with other latent blocks held fixed; these are not joint-posterior studies |
 | Legacy seeded behavior | Saved arrays agree bitwise with 0.1.0 in six Gaussian/probit selection cases |
 | Diagnostic examples | Detect shifted chains, autocorrelation and constant traces |
+| Structured likelihoods | Independent kernel/spectral, Gaussian block-density, conditional residual and censoring/CIF/path identities |
+| Structured posterior targets | Constant-GP Gaussian, Poisson and delayed-entry survival targets against independent integration; amplitude held fixed for these checks |
+| Finite-basis storage | Instrumented PP/RFF operations avoid training-size square matrices; this is not a large-dataset benchmark |
 | Package and input checks | Exercise saved objects, preprocessing, errors, distribution contents and installed examples |
 
 The posterior-target tests use fixed seeds and Monte Carlo tolerances based on

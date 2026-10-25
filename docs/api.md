@@ -11,17 +11,23 @@ km.fit(
     selection="none", groups=None, prior=None, r_fixed=None, missing="raise",
     exposure_names=None, covariate_names=None, initial=None, proposal_scales=None,
     cluster=None, offset=None, event=None, baseline_breaks=None,
+    kernel="gaussian", kernel_alpha=1, approximation="dense", n_components=32,
+    knots=None, random_slopes=None, random_covariance=None, random_scale=2,
+    correlation=None, observation_time=None, correlation_parameter=None,
+    variance_design=None, entry=None, upper=None, subject=None, n_causes=None,
 )
 ```
 
-Returns `BKMRFit`.
+Returns `BKMRFit`, or its `StructuredFit` subclass when a structured option is selected.
+[Structured models](structured.md) defines the additional inputs, priors, shapes
+and predictions. Original default fitting paths remain unchanged.
 
 | Family | Required outcome inputs | Mean or probability |
 | --- | --- | --- |
 | Gaussian | Numeric `y` | Continuous outcome mean |
 | Binomial | `y` equal to 0 or 1 | Probit probability |
 | Poisson / negative binomial | Nonnegative integer `y`; `offset` when needed | Count mean, including the log offset |
-| Survival | Positive observed times in `y`, binary `event` | Relative hazard from `predict`; survival/hazard from `predict_survival` |
+| Survival | Default: positive observed times and binary `event`; structured: cause codes, entry and censoring bounds | Relative hazard from `predict`; survival/hazard from `predict_survival` |
 
 `cluster` supplies one string or integer label per observation. Missing labels
 participate in `missing="drop"`. Integer `1` and string `"1"` are distinct.
@@ -41,12 +47,12 @@ constant baseline hazard. Family-specific arguments are rejected elsewhere.
 | `selection` | `"none"`, `"component"` or `"group"`. Group selection requires one `groups` label per exposure and permits at most one active exposure in each included group. |
 | `prior` | `Prior`, a dictionary of its fields, or `None` for defaults. |
 | `r_fixed` | Finite nonnegative vector fixing exposure relevance values; disallows variable selection. |
-| `missing` | `"raise"` or joint complete-case `"drop"`. Infinity remains invalid. |
+| `missing` | `"raise"` or joint complete-case `"drop"`. Infinity remains invalid except for right-censoring upper bounds. |
 | Names | Optional unique names for exposure and raw adjustment columns. Otherwise use input DataFrame columns, or generated names. |
-| `initial` | Shared chain initialization dictionary. Common keys: `beta`, `r`, `lambda`, `delta`, `pi`. Gaussian/probit use `sigma2` and binary `ystar`; new families use `latent_white`, with NB2 `dispersion` or survival `baseline_hazard`. Clusters add `lambda_cluster` and new-family `u_white`. Omitted values receive defaults; inapplicable keys raise errors. |
+| `initial` | Shared chain initialization dictionary. Basic-sampler keys: `beta`, `r`, `lambda`, `delta`, `pi`. Gaussian/probit use `sigma2` and binary `ystar`; new families use `latent_white`, with NB2 `dispersion` or survival `baseline_hazard`. Clusters add `lambda_cluster` and new-family `u_white`. Omitted values receive defaults; inapplicable keys raise errors. Structured models use cause-indexed coefficients and `gp_weight`; see their guide. |
 | `proposal_scales` | Positive log-scale standard deviations for `r`, `lambda`, and applicable `cluster_lambda` or NB2 `dispersion`. Defaults are `0.3`; scales stay fixed. |
 
-The adjustment design must have full column rank and fewer columns than retained observations. Binary adjustment designs with complete or quasi-complete separation are rejected under the flat coefficient prior. Fitting uses exact dense covariance matrices, with quadratic memory and cubic linear-algebra cost in the number of observations. Successful fitting does not establish convergence.
+The adjustment design must have full column rank and fewer columns than retained observations. The default binary sampler rejects complete or quasi-complete separation under its flat coefficient prior; structured fits use a proper normal prior. Default fitting uses dense covariance matrices, with quadratic memory and cubic linear-algebra cost. Predictive-process and random-Fourier options replace the GP with the selected finite basis; dense residual correlation blocks can remain costly. Successful fitting does not establish convergence.
 
 ### Prior configuration
 
@@ -72,6 +78,22 @@ controls the proper coefficient prior for count/survival. Dispersion and baselin
 parameters use gamma shape/rate; other-family fields are unused as documented.
 
 
+## Structured model results
+
+| Task | Method or helper |
+| --- | --- |
+| Exact alternative kernels | `kernel_matrix(Z1, Z2=None, r=None, kernel="gaussian", alpha=1)` |
+| Intercept/slope coefficient draws | `fit.random_effects(cluster_new=None, ...)` |
+| Gaussian residual variances | `fit.predict_residual_variance(Znew=None, variance_design_new=None, ...)` |
+| Cause-specific h and effect summaries | `fit.for_cause(cause)` |
+| Competing-risk probabilities | `fit.predict_cumulative_incidence(..., times=..., cause=None)` |
+| Time-varying predictor paths | `fit.predict_survival_path(..., start=..., stop=..., subject_new=..., times=...)` |
+
+`StructuredFit` retains the shared summary, sample, diagnostic, contrast and
+save/load methods. `RandomCoefficientPrediction` stores coefficient draws;
+`CompetingRiskPrediction.for_cause(k)` returns a curve accepted by `plot_survival`.
+Additional inputs, initialization shapes and runnable examples are in the [structured guide](structured.md).
+
 ## Fit results and diagnostics
 
 `BKMRFit` retains `data`, `samples`, `settings` and `sampling_info`. Properties `family`, `exposure_names` and `covariate_names` describe the fitted inputs. Stored arrays are copied and read-only; extracted samples are independent copies.
@@ -87,7 +109,7 @@ parameters use gamma shape/rate; other-family fields are unused as documented.
 | `km.BKMRFit.load(path, *, max_bytes=512 * 1024 * 1024)` | Load and validate an archive, limiting total uncompressed member size. |
 | `km.diagnose(values)` | Diagnostics for one finite scalar-parameter array shaped `(chains, draws)`. |
 
-Saved parameters include `beta`, `r`, `lambda`, `sigma2`, `delta` and `pi`; binary fits also retain `ystar`. `delta` records exposure inclusion. `beta` includes the added intercept when fitted. No-selection fits store `pi=1`. Diagnostics cannot establish model validity; R-hat requires multiple chains and short or constant sequences can yield undefined diagnostics.
+Default-route saved parameters include `beta`, `r`, `lambda`, `sigma2`, `delta` and `pi`; its binary fits also retain `ystar`. Structured arrays are described in the [structured guide](structured.md). `delta` records exposure inclusion. `beta` includes the added intercept when fitted. No-selection fits store `pi=1`. Diagnostics cannot establish model validity; R-hat requires multiple chains and short or constant sequences can yield undefined diagnostics.
 
 ## Prediction
 
@@ -143,13 +165,13 @@ observation draws are unsupported and raise an error.
 Omitted `cluster_new` fixes the intercept to zero, including for training
 predictions. Known labels use their posterior; unseen labels use a new Gaussian
 intercept. Equal labels share a draw. `predict_h` always excludes random
-intercepts. Gaussian/probit prediction samples `h + u` jointly when labels are
+intercepts. Default Gaussian/probit prediction samples `h + u` jointly when labels are
 supplied, preserving posterior covariance.
 
-New-family samples include `h` and auxiliary `latent_white`; negative-binomial
+For the default count/survival route, samples include `h` and auxiliary `latent_white`; negative-binomial
 fits also include `dispersion`; survival fits include `baseline_hazard`.
-Clustered fits include `lambda_cluster`, and count/survival fits also retain `u`.
-Gaussian/probit random intercepts are integrated out while fitting and drawn
+Default-route clustered fits include `lambda_cluster`, and count/survival fits also retain `u`.
+Default Gaussian/probit random intercepts are integrated out while fitting and drawn
 conditionally by `random_intercepts`. `sigma2=1` is only a shared latent convention
 for count/survival and is omitted from their summaries. Saved white coordinates
 refer to the sampler's eigensystem; use saved `h` for portable prediction.
