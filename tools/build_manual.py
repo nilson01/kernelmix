@@ -21,7 +21,7 @@ def main():
         raise SystemExit('pdflatex is required; install a LaTeX distribution.')
     root = Path(__file__).resolve().parents[1]
     sources = [root / 'README.md'] + [root / 'docs' / name for name in (
-        'methods.md', 'tutorial.md', 'structured.md', 'api.md', 'development.md')]
+        'methods.md', 'tutorial.md', 'airquality.md', 'structured.md', 'api.md', 'reproduction.md', 'development.md')]
     with tempfile.TemporaryDirectory(prefix='kernelmix-manual-') as folder:
         build = Path(folder)
         parts = []
@@ -42,6 +42,9 @@ def main():
             text = text.replace(
                 f'https://github.com/nilson01/kernelmix/blob/{options.revision}/docs/figures/count-survival.png',
                 str(root / 'docs/figures/count-survival.pdf'))
+            text = text.replace(
+                f'https://github.com/nilson01/kernelmix/blob/{options.revision}/docs/figures/airquality.png',
+                str(root / 'docs/figures/airquality.pdf'))
             parts.append(text)
         markdown = build / 'manual.md'
         markdown.write_text('\n\n'.join(parts), encoding='utf-8')

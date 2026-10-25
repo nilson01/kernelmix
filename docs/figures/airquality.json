@@ -1,0 +1,15 @@
+{
+  "inputs": {
+    "curves.csv": "4f5d8d7bdf873f8b3d0cbc754f7299aae0ceb2ca51b40b58f60ea0757396e1d2",
+    "observations.csv": "4aa3b80d3f3c621e68eca9a3fe5a0f1e64cf5b9f516a64fa351d30c7655639ad"
+  },
+  "script_sha256": "8d8b09292a16972e309b617740c77d9e0d1cc8221847199a80371aee3b883c58",
+  "size_inches": [
+    10.2,
+    5.9
+  ],
+  "png_dpi": 300,
+  "uncertainty": "95% equal-tailed pointwise credible intervals under independent Gaussian working errors; not serial-dependence robust",
+  "curve_definition": "5th\u201395th marginal quantiles; other variables at sample medians; reference is all-median profile",
+  "missing_dates": "unobserved dates not connected or imputed"
+}

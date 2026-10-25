@@ -18,3 +18,5 @@ KernelMix code and documentation are distributed under GNU GPL version 2 only,
 without warranty. See LICENSE. NumPy, SciPy and Matplotlib retain their own licenses.
 
 Additional kernel definitions follow Rasmussen and Williams (2006), Gaussian Processes for Machine Learning, chapter4. Random Fourier features follow Rahimi and Recht (2007). Predictive processes follow Banerjee etal. (2008), DOI10.1111/j.1467-9868.2008.00663.x. Residual variance/correlation and survival data conventions are separately cited in the structured-model guide. These are model ingredients, not claims of new estimators or complete upstream interfaces.
+
+The bundled airquality CSV is exported from R 4.5.0 datasets::airquality. The original measurements are credited to the New York State Department of Conservation and the National Weather Service; see Chambers et al. (1983), Graphical Methods for Data Analysis, and the R datasets documentation. This export and its test fixture are distributed under GPL-2.0 as part of this package.

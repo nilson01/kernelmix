@@ -1,5 +1,5 @@
 include LICENSE NOTICE README.md CONTRIBUTING.md CHANGELOG.md CITATION.cff
-recursive-include docs *.md *.pdf *.png *.csv
+recursive-include docs *.md *.pdf *.png *.csv *.json
 recursive-include tests *.py *.json
 recursive-include tools *.py *.R
 prune .github
