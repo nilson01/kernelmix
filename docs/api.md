@@ -10,15 +10,31 @@ km.fit(
     chains=4, thin=1, seed=None, standardize=True, intercept=True,
     selection="none", groups=None, prior=None, r_fixed=None, missing="raise",
     exposure_names=None, covariate_names=None, initial=None, proposal_scales=None,
+    cluster=None, offset=None, event=None, baseline_breaks=None,
 )
 ```
 
 Returns `BKMRFit`.
 
+| Family | Required outcome inputs | Mean or probability |
+| --- | --- | --- |
+| Gaussian | Numeric `y` | Continuous outcome mean |
+| Binomial | `y` equal to 0 or 1 | Probit probability |
+| Poisson / negative binomial | Nonnegative integer `y`; `offset` when needed | Count mean, including the log offset |
+| Survival | Positive observed times in `y`, binary `event` | Relative hazard from `predict`; survival/hazard from `predict_survival` |
+
+`cluster` supplies one string or integer label per observation. Missing labels
+participate in `missing="drop"`. Integer `1` and string `"1"` are distinct.
+`offset` is a finite vector of log observation exposures for count families.
+`event` is required only for survival; `baseline_breaks` supplies internal positive,
+strictly increasing cuts. Omit cuts to use event-time deciles, or pass `[]` for a
+constant baseline hazard. Family-specific arguments are rejected elsewhere.
+
+
 | Input | Meaning |
 | --- | --- |
 | `y`, `Z`, `X` | Outcome vector, exposure matrix and optional adjustment matrix, with matching rows. Supply raw adjustment columns without an intercept when `intercept=True`. |
-| `family` | `"gaussian"` for continuous outcomes or `"binomial"` for binary probit regression. Binary residual variance is fixed at one. |
+| `family` | `"gaussian"`, `"binomial"` (probit), `"poisson"`, `"negative_binomial"` (NB2) or `"survival"` (piecewise-exponential proportional hazards). |
 | `draws`, `warmup`, `chains`, `thin` | Retained states per chain, discarded iterations, sequential chains and spacing between retained states. Total iterations per chain are `warmup + draws * thin`. At least two retained states are required. |
 | `seed` | Nonnegative integer or `None`; uses local random generators without changing NumPy's global random state. |
 | `standardize` | Center exposures and divide by retained-training sample standard deviations. Constant exposures are invalid when this is enabled. |
@@ -27,8 +43,8 @@ Returns `BKMRFit`.
 | `r_fixed` | Finite nonnegative vector fixing exposure relevance values; disallows variable selection. |
 | `missing` | `"raise"` or joint complete-case `"drop"`. Infinity remains invalid. |
 | Names | Optional unique names for exposure and raw adjustment columns. Otherwise use input DataFrame columns, or generated names. |
-| `initial` | Shared dictionary of initial `beta`, `r`, `lambda`, `sigma2`, `delta`, `pi` and, for binary outcomes, `ystar`. Omitted entries receive defaults. |
-| `proposal_scales` | Dictionary containing positive log-scale proposal standard deviations for `"r"` and/or `"lambda"`; both default to `0.3` and stay fixed throughout sampling. |
+| `initial` | Shared chain initialization dictionary. Common keys: `beta`, `r`, `lambda`, `delta`, `pi`. Gaussian/probit use `sigma2` and binary `ystar`; new families use `latent_white`, with NB2 `dispersion` or survival `baseline_hazard`. Clusters add `lambda_cluster` and new-family `u_white`. Omitted values receive defaults; inapplicable keys raise errors. |
+| `proposal_scales` | Positive log-scale standard deviations for `r`, `lambda`, and applicable `cluster_lambda` or NB2 `dispersion`. Defaults are `0.3`; scales stay fixed. |
 
 The adjustment design must have full column rank and fewer columns than retained observations. Binary adjustment designs with complete or quasi-complete separation are rejected under the flat coefficient prior. Fitting uses exact dense covariance matrices, with quadratic memory and cubic linear-algebra cost in the number of observations. Successful fitting does not establish convergence.
 
@@ -40,10 +56,21 @@ km.Prior(
     r_lower=0.0, r_upper=100.0, lambda_mean=10.0, lambda_sd=10.0,
     sigma2_shape=0.001, sigma2_rate=0.001,
     inclusion_alpha=1.0, inclusion_beta=1.0,
+    cluster_lambda_mean=10.0, cluster_lambda_sd=10.0, beta_sd=5.0,
+    dispersion_shape=2.0, dispersion_rate=0.1,
+    baseline_shape=0.1, baseline_rate=0.1,
 )
 ```
 
 `r_distribution` accepts `"gamma"`, `"unif"` and `"invunif"`. The inverse-uniform option places the uniform distribution on `1/r`, so its bounds apply to the reciprocal of an active relevance value. Excluded exposures have relevance zero. Gamma priors use mean and standard deviation; the residual variance uses inverse-gamma shape and rate. Inclusion probabilities use a beta prior. The residual variance prior is used for Gaussian outcomes.
+
+Count/survival `prior=None` uses `lambda_mean=1`, `lambda_sd=.5`,
+`cluster_lambda_mean=1`, `cluster_lambda_sd=.5`; the other fields retain their
+listed defaults. A dictionary overlays family defaults. A `Prior` object supplies
+all its values explicitly, including its listed amplitude defaults. `beta_sd`
+controls the proper coefficient prior for count/survival. Dispersion and baseline
+parameters use gamma shape/rate; other-family fields are unused as documented.
+
 
 ## Fit results and diagnostics
 
@@ -68,7 +95,7 @@ Saved parameters include `beta`, `r`, `lambda`, `sigma2`, `delta` and `pi`; bina
 fit.predict_h(Znew=None, *, probability=0.95, max_draws=None, seed=None)
 fit.predict(
     Znew=None, Xnew=None, *, kind="mean", scale="response",
-    probability=0.95, max_draws=None, seed=None,
+    probability=0.95, max_draws=None, seed=None, offset=None, cluster_new=None,
 )
 fit.posterior_moments_h(Znew=None, max_draws=None)
 ```
@@ -77,14 +104,56 @@ All new exposure values use original units and the training column order. Named 
 
 | Call | Quantity |
 | --- | --- |
-| `predict_h` | Joint draws of `h`, excluding intercept and adjustment terms. |
-| `predict(..., kind="mean", scale="response")` | Gaussian outcome means or binary probabilities. |
-| `predict(..., kind="observation", scale="response")` | Gaussian future outcomes including residual noise, or binary zero-or-one outcomes. |
-| `predict(..., kind="mean", scale="latent")` | `h` plus the linear adjustment contribution, before the binary probit transformation. |
-| `predict(..., kind="observation", scale="latent")` | Latent outcomes including Gaussian residual noise; binary residual variance is one. |
+| `predict_h` | Joint draws of `h`, excluding linear adjustment and random intercepts. |
+| `predict(..., kind="mean", scale="response")` | Gaussian/count means, binary probabilities, or survival relative hazards. |
+| `predict(..., kind="observation", scale="response")` | Gaussian, binary or count future observations; survival is unsupported. |
+| `predict(..., kind="mean", scale="latent")` | `h` plus linear adjustment and requested random intercept; count log offsets are included. This is before the probit/log-link transformation. |
+| `predict(..., kind="observation", scale="latent")` | Gaussian outcomes or binary latent outcomes including residual noise; binary residual variance is one. Count/survival latent observation draws are unsupported. |
 | `posterior_moments_h` | Dictionary with deterministic integrated `mean` and `covariance` for `h`, averaging conditional moments over saved states. |
 
 `max_draws` selects at most that many evenly spaced saved states **per chain**, with a minimum of two. It does not refit. `seed` controls conditional prediction draws. A `Prediction` contains `draws` shaped `(chains, selected_draws, rows)`, `mean`, `sd`, `lower`, `upper`, joint `covariance`, `probability`, `scale` and `kind`. Its `to_records()` method returns one summary dictionary per row. Intervals are equal-tailed pointwise posterior intervals; observation intervals also include observation noise.
+
+## Cluster and survival results
+
+```python
+fit.random_intercepts(cluster_new=None, *, probability=.95, max_draws=None, seed=None)
+fit.predict_survival(
+    Znew=None, Xnew=None, *, times, kind="survival", cluster_new=None,
+    probability=.95, max_draws=None, seed=None,
+)
+km.plot_survival(prediction, row=0, ax=None)
+```
+
+`random_intercepts` returns a `Prediction` in training-cluster order by default,
+or supplied label order. Known and unseen labels follow the policy below.
+`predict_survival` requires finite, nonnegative, strictly increasing `times`.
+Its `SurvivalPrediction.draws` has axes `(chain, draw, row, time)`; `mean`, `sd`,
+`lower` and `upper` have shape `(row, time)`. Fields `times`, `probability` and
+`kind` identify the grid and summary. `to_records()` returns one row per
+profile/time pair. `kind="hazard"` evaluates hazards on that grid. The plot
+shows a survival curve, or hazard points and intervals without inventing step
+locations between a sparse set of times.
+
+`predict` additionally accepts `offset=None` and `cluster_new=None`.
+For training count prediction, omitted offsets reuse retained offsets. For new
+rows, offsets are required if they were supplied during fitting. Response-scale
+count observations are Poisson or NB2 draws. Latent count observations and survival
+observation draws are unsupported and raise an error.
+
+Omitted `cluster_new` fixes the intercept to zero, including for training
+predictions. Known labels use their posterior; unseen labels use a new Gaussian
+intercept. Equal labels share a draw. `predict_h` always excludes random
+intercepts. Gaussian/probit prediction samples `h + u` jointly when labels are
+supplied, preserving posterior covariance.
+
+New-family samples include `h` and auxiliary `latent_white`; negative-binomial
+fits also include `dispersion`; survival fits include `baseline_hazard`.
+Clustered fits include `lambda_cluster`, and count/survival fits also retain `u`.
+Gaussian/probit random intercepts are integrated out while fitting and drawn
+conditionally by `random_intercepts`. `sigma2=1` is only a shared latent convention
+for count/survival and is omitted from their summaries. Saved white coordinates
+refer to the sampler's eigensystem; use saved `h` for portable prediction.
+
 
 ## Exposure contrasts and curves
 
@@ -93,20 +162,32 @@ km.overall_effect(
     fit, quantiles=(0.25, 0.5, 0.75), reference=0.5, scale="latent",
     X=None, probability=0.95, max_draws=None, seed=None,
 )
+```
+
+```python
 km.univariate_response(
     fit, variable=None, grid=None, points=50, fixed_quantile=0.5,
     center=True, scale="latent", X=None, probability=0.95,
     max_draws=None, seed=None,
 )
+```
+
+```python
 km.bivariate_response(
     fit, variables=(0, 1), grids=None, points=20, fixed_quantile=0.5,
     center=True, scale="latent", X=None, probability=0.95,
     max_draws=None, seed=None,
 )
+```
+
+```python
 km.single_exposure_effects(
     fit, quantiles=(0.25, 0.75), fixed_quantiles=(0.25, 0.5, 0.75),
     scale="latent", X=None, probability=0.95, max_draws=None, seed=None,
 )
+```
+
+```python
 km.interaction_effects(
     fit, variables=None, quantiles=(0.25, 0.75), fixed_quantile=0.5,
     scale="latent", X=None, probability=0.95, max_draws=None, seed=None,
@@ -125,7 +206,7 @@ Quantiles come from retained original training exposures and must lie in `[0, 1]
 
 With `center=True`, curves and surfaces subtract the **all-median** reference profile, even if `fixed_quantile` is changed. This differs from R `bkmr` curve centering by the average fitted grid value. The pairwise interaction above also differs from the R summary that changes all background exposures together. These definitions should be specified when comparing results between packages.
 
-Latent summaries use `h`. Response summaries use Gaussian means or binary probabilities and hold `X` constant. `X` is one raw adjustment vector; when omitted it defaults to retained training covariate means. `X` is rejected for latent summaries. Binary probabilities are transformed before contrasts are calculated. All contrasts use joint draws to preserve covariance and exactly cancel identical profiles.
+Latent summaries use `h`. Response summaries use Gaussian/count means, binary probabilities or survival relative hazards, holding `X` constant and random intercepts at zero. Count summaries use zero log offsets (unit observation exposure). Survival summaries subtract relative hazards; they do not return survival-probability contrasts or hazard ratios. `X` is one raw adjustment vector; when omitted it defaults to retained training covariate means. `X` is rejected for latent summaries. Binary probabilities are transformed before contrasts are calculated. All contrasts use joint draws to preserve covariance and exactly cancel identical profiles.
 
 Result objects contain `draws` with axes `(chains, selected_draws, locations)`, `mean`, `sd`, `lower`, `upper`, `locations`, `profiles`, `coefficients`, `scale`, `probability`, `kind` and `metadata`. `locations` identifies each variable, pair, quantile or grid value. `profiles` stores distinct original-unit prediction rows; `coefficients` maps their joint draws to reported summaries. `to_records()` returns location fields and numeric summaries. A `SurfaceResult` also contains `variables`, `grids` and `shape`; reshape its flat summaries to `shape`, with the second grid changing fastest.
 
@@ -141,6 +222,7 @@ km.plot_pips(fit, ax=None)
 km.plot_response(curve, ax=None)
 km.plot_overall(effect, ax=None)
 km.plot_surface(surface, ax=None)
+km.plot_survival(prediction, row=0, ax=None)
 ```
 
 Each function returns a Matplotlib axes object, creates one when `ax=None`, and leaves display, saving and global styles to the caller. `indices` selects a scalar component for a vector-valued trace parameter, for example `indices=0` for the first `beta` coefficient. Traces contain retained draws only. PIP plots require a selection fit.
@@ -159,3 +241,8 @@ Returns a Gaussian kernel matrix between the supplied exposure rows. `Z2=None` u
 
 - [Bobb et al. (2015), Bayesian kernel machine regression for estimating the health effects of multi-pollutant mixtures](https://doi.org/10.1093/biostatistics/kxu058).
 - [Bobb et al. (2018), Statistical software for analyzing the health effects of multiple concurrent exposures via Bayesian kernel machine regression](https://doi.org/10.1186/s12940-018-0413-y).
+
+
+- [Murray et al. (2010), Elliptical slice sampling](https://proceedings.mlr.press/v9/murray10a.html).
+- [Stan count-distribution definitions](https://mc-stan.org/docs/functions-reference/unbounded_discrete_distributions.html).
+- [INLA manual, piecewise-constant proportional hazards (§3.15)](https://inla.r-inla-download.org/r-inla.org/doc/inla-manual/inla-manual.pdf).

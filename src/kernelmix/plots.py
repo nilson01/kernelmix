@@ -9,7 +9,7 @@ from numbers import Integral
 
 import numpy as np
 
-__all__ = ['plot_trace', 'plot_pips', 'plot_response', 'plot_overall', 'plot_surface']
+__all__ = ['plot_trace', 'plot_pips', 'plot_response', 'plot_overall', 'plot_surface', 'plot_survival']
 
 _COLORS = ('#0072B2', '#D55E00', '#009E73', '#CC79A7', '#000000')
 _STYLES = ('-', '--', '-.', ':')
@@ -32,7 +32,9 @@ def _response_label(result):
     if result.scale == 'latent':
         return 'Change in h' if centered or result.kind not in ('univariate', 'bivariate') else 'h'
     probability = result.metadata.get('family') == 'binomial'
-    label = 'Predicted probability' if probability else 'Predicted outcome mean'
+    label = ('Relative hazard' if result.metadata.get('family') == 'survival' else
+             'Predicted probability' if probability else 'Predicted count mean' if
+             result.metadata.get('family') in ('poisson', 'negative_binomial') else 'Predicted outcome mean')
     return ('Change in ' + label.lower()) if centered or result.kind not in ('univariate', 'bivariate') else label
 
 
@@ -166,4 +168,29 @@ def plot_surface(surface, ax=None):
     ax.set(xlabel=f'{surface.variables[0]} (original units)',
            ylabel=f'{surface.variables[1]} (original units)',
            title='Posterior mean surface (uncertainty not shown)')
+    return ax
+
+
+
+def plot_survival(prediction, row=0, ax=None):
+    """Plot a survival curve or evaluated hazards with pointwise credible intervals."""
+    if prediction.kind not in ('survival', 'hazard') or prediction.mean.ndim != 2:
+        raise ValueError('plot_survival requires a SurvivalPrediction')
+    if isinstance(row, (bool, np.bool_)) or not isinstance(row, Integral) or not 0 <= row < prediction.mean.shape[0]:
+        raise ValueError('row must index a prediction profile')
+    ax = _axis(ax)
+    if prediction.kind == 'survival':
+        ax.plot(prediction.times, prediction.mean[row], color=_COLORS[0], label='Posterior mean')
+        ax.fill_between(prediction.times, prediction.lower[row], prediction.upper[row],
+                        color=_COLORS[0], alpha=.16, label=_interval_label(prediction))
+        ax.set(xlabel='Time', ylabel=r'$S(t)$', ylim=(0, 1))
+    else:
+        # A sparse time grid need not include every baseline cut. Show only
+        # evaluated hazards, rather than implying a false step location.
+        ax.vlines(prediction.times, prediction.lower[row], prediction.upper[row],
+                  color=_COLORS[0], label=_interval_label(prediction))
+        ax.plot(prediction.times, prediction.mean[row], color=_COLORS[0],
+                marker='o', linestyle='none', label='Posterior mean')
+        ax.set(xlabel='Time', ylabel='Hazard (per time unit)')
+    ax.legend()
     return ax

@@ -1,6 +1,7 @@
 """Build docs/manual.pdf from the maintained Markdown sources."""
 from __future__ import annotations
 
+import argparse
 import re
 import shutil
 import subprocess
@@ -9,6 +10,9 @@ from pathlib import Path
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--revision', default='main', help='Git revision used in PDF repository links')
+    options = parser.parse_args()
     try:
         import pypandoc
     except ImportError as exc:
@@ -29,18 +33,26 @@ def main():
                 if '://' in target or target.startswith('#'):
                     return match.group(0)
                 resolved = (source.parent / target).resolve().relative_to(root)
-                return f'](https://github.com/nilson01/kernelmix/blob/main/{resolved.as_posix()})'
+                return f'](https://github.com/nilson01/kernelmix/blob/{options.revision}/{resolved.as_posix()})'
             text = re.sub(r'\]\(([^)]+)\)', link, text)
             # Use the local original image when compiling.
             text = text.replace(
-                'https://github.com/nilson01/kernelmix/blob/main/docs/figures/response.png',
+                f'https://github.com/nilson01/kernelmix/blob/{options.revision}/docs/figures/response.png',
                 str(root / 'docs/figures/response.pdf'))
+            text = text.replace(
+                f'https://github.com/nilson01/kernelmix/blob/{options.revision}/docs/figures/count-survival.png',
+                str(root / 'docs/figures/count-survival.pdf'))
             parts.append(text)
         markdown = build / 'manual.md'
         markdown.write_text('\n\n'.join(parts), encoding='utf-8')
         header = build / 'header.tex'
         header.write_text(r'''\usepackage{fvextra}
-\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\},breaklines=true,breakanywhere=true,fontsize=\small}
+\usepackage{needspace}
+\usepackage{etoolbox}
+\BeforeBeginEnvironment{Shaded}{\Needspace{8\baselineskip}}
+\AddToHook{cmd/section/before}{\Needspace{16\baselineskip}}
+\AddToHook{cmd/subsection/before}{\Needspace{12\baselineskip}}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\},breaklines=true,breakanywhere=true,samepage=true,fontsize=\small}
 \AtBeginDocument{\hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue,citecolor=blue}}
 ''', encoding='utf-8')
         command = [pypandoc.get_pandoc_path(), str(markdown), '--standalone',

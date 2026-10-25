@@ -1,6 +1,7 @@
 """Validated scalar priors for the selected BKMR model.
 
-Defaults follow bkmr 0.2.2. Bounds for ``invunif`` apply to 1/r.
+Gaussian/probit defaults follow bkmr 0.2.2. Generalized fitting chooses
+separate amplitude defaults. Bounds for ``invunif`` apply to 1/r.
 """
 import math
 from dataclasses import dataclass
@@ -26,12 +27,21 @@ class Prior:
     sigma2_rate: float = 0.001
     inclusion_alpha: float = 1.0
     inclusion_beta: float = 1.0
+    cluster_lambda_mean: float = 10.0
+    cluster_lambda_sd: float = 10.0
+    beta_sd: float = 5.0
+    dispersion_shape: float = 2.0
+    dispersion_rate: float = 0.1
+    baseline_shape: float = 0.1
+    baseline_rate: float = 0.1
 
     def __post_init__(self):
         if self.r_distribution not in ('gamma', 'unif', 'invunif'):
             raise ValueError("r_distribution must be 'gamma', 'unif', or 'invunif'")
         for name in ('r_mean', 'r_sd', 'lambda_mean', 'lambda_sd',
-                     'sigma2_shape', 'sigma2_rate', 'inclusion_alpha', 'inclusion_beta'):
+                     'sigma2_shape', 'sigma2_rate', 'inclusion_alpha', 'inclusion_beta',
+                     'cluster_lambda_mean', 'cluster_lambda_sd', 'beta_sd',
+                     'dispersion_shape', 'dispersion_rate', 'baseline_shape', 'baseline_rate'):
             value = getattr(self, name)
             if isinstance(value, (bool, np.bool_)) or not np.isscalar(value) or not np.isfinite(value) or value <= 0:
                 raise ValueError(f'{name} must be a finite positive scalar')
@@ -42,7 +52,8 @@ class Prior:
         if not 0 <= self.r_lower < self.r_upper:
             raise ValueError('r bounds must satisfy 0 <= r_lower < r_upper')
         # Reject gamma parameters that overflow/underflow before any fit starts.
-        for mean, sd in ((self.r_mean, self.r_sd), (self.lambda_mean, self.lambda_sd)):
+        for mean, sd in ((self.r_mean, self.r_sd), (self.lambda_mean, self.lambda_sd),
+                         (self.cluster_lambda_mean, self.cluster_lambda_sd)):
             shape, rate = (mean / sd) ** 2, mean / sd ** 2
             if not np.isfinite(shape) or not np.isfinite(rate) or min(shape, rate) <= 0:
                 raise ValueError('gamma mean and sd imply unusable shape/rate')

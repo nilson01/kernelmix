@@ -22,10 +22,15 @@ that a platform passed.
 | Check | Purpose and limit |
 | --- | --- |
 | Independent kernel and conditional-normal calculations | Check covariance, prediction and joint contrasts |
-| Installed R `bkmr` 0.2.2 | Compare constructed saved states for Gaussian and probit models, exact conditional moments, PIPs and prior densities |
+| Installed R `bkmr` 0.2.2 | Compare constructed saved states for Gaussian and probit models, clustered/unclustered conditional moments, PIPs and prior densities |
 | Integrated Gaussian posterior | Compare sampled amplitude quantiles with one-dimensional quadrature after integrating out residual variance |
 | Probit orthant posterior | Compare sampled amplitude quantiles with the analytic two-observation normal orthant likelihood |
 | Uninformative selection case | Check the beta-binomial count distribution when exposure selection cannot change the kernel |
+| Count and survival likelihoods | Compare Poisson/NB2 mass with SciPy and survival density/censoring terms with independent arithmetic and interval splitting |
+| Elliptical slice posterior | Check a conjugate normal target |
+| Poisson scalar posterior | Compare a constant GP posterior with one-dimensional integration |
+| NB2 dispersion / survival baseline | Check conditional scalar/Gamma targets with other latent blocks held fixed; these are not joint-posterior studies |
+| Legacy seeded behavior | Saved arrays agree bitwise with 0.1.0 in six Gaussian/probit selection cases |
 | Diagnostic examples | Detect shifted chains, autocorrelation and constant traces |
 | Package and input checks | Exercise saved objects, preprocessing, errors, distribution contents and installed examples |
 
@@ -44,13 +49,18 @@ Set `R_LIBS` to that library, then run:
 
 ```sh
 Rscript tools/export_reference.R tests/fixtures/r_reference.json
-python -m pytest tests/test_reference.py
+Rscript tools/export_cluster_reference.R tests/fixtures/r_cluster_reference.json
+python -m pytest tests/test_reference.py tests/test_clusters.py
 ```
 
 The exporter verifies the installed version and records R/package versions.
 It calls installed `ComputePostmeanHnew` and `ExtractPIPs`, plus internal kernel
 and prior helpers. The fixtures contain **constructed states, not fitted R MCMC
-chains**. Preprocessing and intercept columns are supplied explicitly.
+chains**. Preprocessing and intercept columns are supplied explicitly. Clustered fixtures
+use the installed public h-summary method and internal covariance helper. The R
+public summary API does not accept arbitrary new-cluster labels; Python h+u
+prediction is checked with an independent block-normal calculation. Count and
+survival inference has no corresponding R `bkmr` family; its evidence is separate.
 
 The elementwise tolerance is `rtol=2e-11, atol=2e-12`. R's exact summary uses
 sample covariance between conditional means (denominator $S-1$); Python's
