@@ -13,3 +13,5 @@ dist/
 *.out
 *.toc
 *.tex
+/ozone-results/
+/ozone-figure.*

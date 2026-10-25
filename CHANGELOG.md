@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Add a reproducible public-data ozone example, saved results and residual plots.
+- Document original-paper asset gaps and the latest hosted-platform startup blocker.
+
 ## 0.3.0
 
 - Matérn 3/2 and rational-quadratic kernels; predictive-process and random-Fourier GP bases.

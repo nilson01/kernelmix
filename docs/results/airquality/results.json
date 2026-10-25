@@ -1,0 +1,263 @@
+{
+  "data_sha256": "2c30fd88f946fb033340b1058465fcf791944d031d3f1c6d653515b7be5a74b3",
+  "settings": {
+    "draws": 20000,
+    "warmup": 5000,
+    "chains": 4,
+    "seed": 73,
+    "family": "gaussian",
+    "selection": "none",
+    "prior": {
+      "r_distribution": "gamma",
+      "r_mean": 1.0,
+      "r_sd": 1.0,
+      "sigma2_shape": 2.0,
+      "sigma2_rate": 1.0
+    }
+  },
+  "profile": {
+    "recorded": 153,
+    "complete": 111,
+    "excluded_rows": [
+      5,
+      6,
+      10,
+      11,
+      25,
+      26,
+      27,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      39,
+      42,
+      43,
+      45,
+      46,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      65,
+      72,
+      75,
+      83,
+      84,
+      96,
+      97,
+      98,
+      102,
+      103,
+      107,
+      115,
+      119,
+      150
+    ],
+    "month_counts": [
+      {
+        "month": 5,
+        "recorded": 31,
+        "complete": 24
+      },
+      {
+        "month": 6,
+        "recorded": 30,
+        "complete": 9
+      },
+      {
+        "month": 7,
+        "recorded": 31,
+        "complete": 26
+      },
+      {
+        "month": 8,
+        "recorded": 31,
+        "complete": 23
+      },
+      {
+        "month": 9,
+        "recorded": 30,
+        "complete": 29
+      }
+    ],
+    "missing_by_field": {
+      "Ozone": 37,
+      "Solar.R": 7,
+      "Wind": 0,
+      "Temp": 0,
+      "Month": 0,
+      "Day": 0
+    }
+  },
+  "missing_comparison": {
+    "complete": {
+      "n": 111,
+      "median_ozone_ppb": 31.0
+    },
+    "observed_ozone_missing_exposure": {
+      "n": 5,
+      "median_ozone_ppb": 35.0
+    }
+  },
+  "fit_seconds": 72.61240420816466,
+  "total_seconds": 77.10037137498148,
+  "consecutive_day_pairs": 92,
+  "consecutive_day_residual_correlation": 0.013583913961926437,
+  "diagnostic_messages": [
+    "Diagnostics do not establish convergence or validate model assumptions."
+  ],
+  "sampling_info": {
+    "runtime_seconds": 72.59659295901656,
+    "chains": [
+      {
+        "chain": 0,
+        "acceptance": {
+          "lambda": {
+            "accepted": 15144,
+            "proposed": 20000,
+            "warmup_accepted": 3786,
+            "warmup_proposed": 5000,
+            "rate": 0.7572,
+            "warmup_rate": 0.7572
+          },
+          "r": {
+            "accepted": 50243,
+            "proposed": 60000,
+            "warmup_accepted": 12546,
+            "warmup_proposed": 15000,
+            "rate": 0.8373833333333334,
+            "warmup_rate": 0.8364
+          },
+          "selection": {
+            "accepted": 0,
+            "proposed": 0,
+            "warmup_accepted": 0,
+            "warmup_proposed": 0,
+            "rate": null,
+            "warmup_rate": null
+          }
+        },
+        "seed_spawn_key": [
+          0
+        ]
+      },
+      {
+        "chain": 1,
+        "acceptance": {
+          "lambda": {
+            "accepted": 15210,
+            "proposed": 20000,
+            "warmup_accepted": 3779,
+            "warmup_proposed": 5000,
+            "rate": 0.7605,
+            "warmup_rate": 0.7558
+          },
+          "r": {
+            "accepted": 50110,
+            "proposed": 60000,
+            "warmup_accepted": 12588,
+            "warmup_proposed": 15000,
+            "rate": 0.8351666666666666,
+            "warmup_rate": 0.8392
+          },
+          "selection": {
+            "accepted": 0,
+            "proposed": 0,
+            "warmup_accepted": 0,
+            "warmup_proposed": 0,
+            "rate": null,
+            "warmup_rate": null
+          }
+        },
+        "seed_spawn_key": [
+          1
+        ]
+      },
+      {
+        "chain": 2,
+        "acceptance": {
+          "lambda": {
+            "accepted": 15120,
+            "proposed": 20000,
+            "warmup_accepted": 3806,
+            "warmup_proposed": 5000,
+            "rate": 0.756,
+            "warmup_rate": 0.7612
+          },
+          "r": {
+            "accepted": 50345,
+            "proposed": 60000,
+            "warmup_accepted": 12521,
+            "warmup_proposed": 15000,
+            "rate": 0.8390833333333333,
+            "warmup_rate": 0.8347333333333333
+          },
+          "selection": {
+            "accepted": 0,
+            "proposed": 0,
+            "warmup_accepted": 0,
+            "warmup_proposed": 0,
+            "rate": null,
+            "warmup_rate": null
+          }
+        },
+        "seed_spawn_key": [
+          2
+        ]
+      },
+      {
+        "chain": 3,
+        "acceptance": {
+          "lambda": {
+            "accepted": 15211,
+            "proposed": 20000,
+            "warmup_accepted": 3767,
+            "warmup_proposed": 5000,
+            "rate": 0.76055,
+            "warmup_rate": 0.7534
+          },
+          "r": {
+            "accepted": 50235,
+            "proposed": 60000,
+            "warmup_accepted": 12522,
+            "warmup_proposed": 15000,
+            "rate": 0.83725,
+            "warmup_rate": 0.8348
+          },
+          "selection": {
+            "accepted": 0,
+            "proposed": 0,
+            "warmup_accepted": 0,
+            "warmup_proposed": 0,
+            "rate": null,
+            "warmup_rate": null
+          }
+        },
+        "seed_spawn_key": [
+          3
+        ]
+      }
+    ],
+    "algorithm": "dense marginal MH/Gibbs",
+    "proposal_adaptation": false,
+    "seed_entropy": 73
+  },
+  "environment": {
+    "python": "3.14.3 (main, Feb  3 2026, 15:32:20) [Clang 16.0.0 (clang-1600.0.26.6)]",
+    "platform": "macOS-14.6-arm64-arm-64bit-Mach-O",
+    "kernelmix": "0.3.0",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1"
+  },
+  "script_sha256": "729b9b07ae488147aa137ce919acedc4ad0243df62314231eae4ad85be1b214c",
+  "interpretation": "Exploratory complete-case associations under independent Gaussian working errors; no causal, forecasting, general calibration or original-study reproduction claim."
+}

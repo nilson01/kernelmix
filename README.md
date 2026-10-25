@@ -69,6 +69,9 @@ all-median reference. It shows an association, not an identified causal effect.
 
 ## Documentation
 
+- [Observed ozone analysis](docs/airquality.md): data, fit, results and limitations.
+- [Reference studies](docs/reproduction.md): comparison evidence and original-study gaps.
+
 - [Tutorial](docs/tutorial.md): data, fitting, prediction and plots.
 - [Structured models](docs/structured.md): kernels, approximations, residual structures and extended survival.
 - [API](docs/api.md): grouped functions, inputs and returned values.

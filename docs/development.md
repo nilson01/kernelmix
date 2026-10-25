@@ -71,6 +71,10 @@ finite empirical mixture uses denominator $S$, where $S$ is the retained state
 count. The comparison adjusts this convention explicitly. Sampling proposals
 and random-number streams differ; equal seeds do not produce matching chains.
 
+## Observed data and original studies
+
+The [ozone analysis](airquality.md) includes source data, a command-line runner, saved tables and residual checks. [Reference studies](reproduction.md) distinguishes these outputs from installed-R agreement and the unresolved original-paper reproduction. Hosted platform checks remain blocked before runner startup; their exact attempt is recorded there.
+
 ## Build the manual
 
 The editable sources are the README and Markdown pages in `docs`.
