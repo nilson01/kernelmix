@@ -1,6 +1,8 @@
 """Array input checks and stored training transformations (no pandas dependency)."""
 import numpy as np
 
+from ._clusters import cluster_mask, encode_clusters
+
 
 def matrix(value, name, *, columns=None):
     """Convert a numeric 2D input; enforce exact named column order if given."""
@@ -48,7 +50,7 @@ def normalize_groups(groups, m):
 
 def prepare_data(y, Z, X=None, *, family='gaussian', standardize=True,
                  intercept=True, missing='raise', exposure_names=None,
-                 covariate_names=None, groups=None):
+                 covariate_names=None, groups=None, cluster=None):
     """Return copied model data, with joint complete-case rows and ddof=1 scaling."""
     if family not in ('gaussian', 'binomial'):
         raise ValueError("family must be 'gaussian' or 'binomial'")
@@ -74,6 +76,7 @@ def prepare_data(y, Z, X=None, *, family='gaussian', standardize=True,
     if any(np.isinf(a).any() for a in (z, outcome, x)):
         raise ValueError('inputs cannot contain infinity')
     keep = np.isfinite(outcome) & np.isfinite(z).all(axis=1) & np.isfinite(x).all(axis=1)
+    keep &= cluster_mask(cluster, original_n)
     if missing == 'raise' and not keep.all():
         raise ValueError("missing input values; use missing='drop' for joint complete cases")
     rows = np.flatnonzero(keep)
@@ -100,11 +103,13 @@ def prepare_data(y, Z, X=None, *, family='gaussian', standardize=True,
     transformed = (z - center) / scale
     if not np.isfinite(transformed).all():
         raise ValueError('exposure transformation overflowed; rescale inputs')
+    cluster_codes, cluster_levels = encode_clusters(cluster, original_n, rows)
     return dict(y=outcome.copy(), Z=transformed, Z_original=z.copy(), X=design,
                 X_original=x.copy(), z_center=center, z_scale=scale, rows=rows,
                 original_n=original_n, exposure_names=znames,
                 covariate_names=(['Intercept'] + xnames if intercept else xnames),
-                groups=normalize_groups(groups, z.shape[1]))
+                groups=normalize_groups(groups, z.shape[1]),
+                cluster_codes=cluster_codes, cluster_levels=cluster_levels)
 
 
 def prediction_matrix(value, names, *, name='Znew'):

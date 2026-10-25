@@ -106,6 +106,34 @@ def _prediction(draws, probability, scale, kind):
     )
 
 
+@dataclass(frozen=True)
+class SurvivalPrediction:
+    """Joint draws (chains, draws, rows, times) and pointwise summaries."""
+    draws: np.ndarray
+    mean: np.ndarray
+    sd: np.ndarray
+    lower: np.ndarray
+    upper: np.ndarray
+    times: np.ndarray
+    probability: float
+    kind: str
+
+    def to_records(self):
+        return [{"row": row, "time": float(time), "mean": float(self.mean[row, j]),
+                 "sd": float(self.sd[row, j]), "lower": float(self.lower[row, j]),
+                 "upper": float(self.upper[row, j]), "kind": self.kind}
+                for row in range(self.mean.shape[0]) for j, time in enumerate(self.times)]
+
+
+def _survival_prediction(draws, times, probability, kind):
+    probability = _probability(probability)
+    flat = draws.reshape((-1,) + draws.shape[2:])
+    tail = (1-probability)/2
+    lower, upper = np.quantile(flat, [tail, 1-tail], axis=0)
+    return SurvivalPrediction(*map(_freeze, (draws, flat.mean(axis=0), flat.std(axis=0, ddof=1),
+                                             lower, upper, times)), probability, kind)
+
+
 class BKMRFit:
     """Saved BKMR chains, data transformations, summaries, and predictions.
 
@@ -130,7 +158,7 @@ class BKMRFit:
         required_samples = {"beta", "r", "lambda", "sigma2", "delta", "pi"}
         if not required_samples.issubset(self.samples):
             raise ValueError("posterior samples are incomplete")
-        if self.family not in ("gaussian", "binomial"):
+        if self.family not in ("gaussian", "binomial", "poisson", "negative_binomial", "survival"):
             raise ValueError("unknown outcome family")
         y, z, x = self.data["y"], self.data["Z"], self.data["X"]
         if y.ndim != 1 or z.ndim != 2 or x.ndim != 2 or len(z) != len(y) or len(x) != len(y):
@@ -145,6 +173,44 @@ class BKMRFit:
             shapes["ystar"] = (chains, draws, n)
             if not np.isin(y, [0, 1]).all():
                 raise ValueError("binary outcomes must be zero or one")
+        if self.family in ("poisson", "negative_binomial", "survival"):
+            shapes["h"] = (chains, draws, n)
+            shapes["latent_white"] = (chains, draws, n)
+            if not np.all(self.samples["sigma2"] == 1):
+                raise ValueError("generalized models use unit latent variance convention")
+        if self.settings.get("clustered", False):
+            codes = self.data.get("cluster_codes")
+            levels = self.data.get("cluster_levels", [])
+            if codes is None or codes.shape != (n,) or not levels:
+                raise ValueError("cluster codes and levels are required")
+            if not np.issubdtype(codes.dtype, np.integer) or np.any(codes < 0) or np.any(codes >= len(levels)):
+                raise ValueError("invalid cluster codes")
+            from ._clusters import canonical_label
+            if len(set(map(canonical_label, levels))) != len(levels):
+                raise ValueError("cluster levels must be distinct typed labels")
+            shapes["lambda_cluster"] = (chains, draws)
+            if self.family in ("poisson", "negative_binomial", "survival"):
+                shapes["u"] = (chains, draws, len(levels))
+        if self.family in ("poisson", "negative_binomial"):
+            if np.any(y < 0) or np.any(y != np.floor(y)):
+                raise ValueError("count outcomes must be nonnegative integers")
+            offset = self.data.get("offset")
+            if offset is None or offset.shape != (n,) or not np.isfinite(offset).all():
+                raise ValueError("invalid count offsets")
+        if self.family == "negative_binomial":
+            shapes["dispersion"] = (chains, draws)
+        if self.family == "survival":
+            from ._likelihoods import interval_durations
+            breaks = self.data.get("baseline_breaks")
+            durations = interval_durations(y, breaks)
+            event = self.data.get("event")
+            if event is None or event.shape != (n,) or not np.isin(event, [0, 1]).all() or np.any(y <= 0):
+                raise ValueError("survival requires positive times and binary event indicators")
+            if not np.array_equal(self.data.get("event_bin"), np.searchsorted(breaks, y, side="left")):
+                raise ValueError("survival event bins must use right-closed intervals")
+            if not np.allclose(self.data.get("durations"), durations, rtol=1e-12, atol=0):
+                raise ValueError("survival durations do not match observed times")
+            shapes["baseline_hazard"] = (chains, draws, len(breaks) + 1)
         for key, shape in shapes.items():
             if key not in self.samples or self.samples[key].shape != shape:
                 raise ValueError(f"invalid shape for posterior {key}")
@@ -153,8 +219,8 @@ class BKMRFit:
                 raise ValueError(f"posterior {key} must be numeric")
             if not np.isfinite(value).all():
                 raise ValueError(f"posterior {key} contains nonfinite values")
-        for key in ("lambda", "sigma2"):
-            if np.any(self.samples[key] <= 0):
+        for key in ("lambda", "sigma2", "lambda_cluster", "dispersion", "baseline_hazard"):
+            if key in self.samples and np.any(self.samples[key] <= 0):
                 raise ValueError(f"posterior {key} must be positive")
         if np.any(self.samples["r"] < 0) or np.any((self.samples["pi"] < 0) | (self.samples["pi"] > 1)):
             raise ValueError("invalid relevance or inclusion probability")
@@ -187,6 +253,22 @@ class BKMRFit:
             raise ValueError("exposure scales must be positive")
         if len(self.exposure_names) != m or len(self.covariate_names) != p:
             raise ValueError("training names do not match matrix columns")
+        if self.family in ("poisson", "negative_binomial", "survival"):
+            from ._kernel import gaussian_kernel
+            from ._prediction import _check_support
+            last_r, basis = None, None
+            for chain in range(chains):
+                for draw in range(draws):
+                    r = self.samples["r"][chain, draw]
+                    if last_r is None or not np.array_equal(r, last_r):
+                        eig, vectors = np.linalg.eigh(gaussian_kernel(z, r=r))
+                        tolerance = 100*n*np.finfo(float).eps*max(1., eig.max())
+                        basis = vectors[:, eig > tolerance]
+                        last_r = r.copy()
+                    # Support is basis invariant. Do not reconstruct h from saved
+                    # white coordinates: eigenvector signs/rotations can differ
+                    # across valid linear-algebra implementations.
+                    _check_support(self.samples["h"][chain, draw], basis)
 
     @property
     def family(self):
@@ -220,14 +302,18 @@ class BKMRFit:
         return copy(self.samples[parameter])
 
     def _parameters(self):
-        for key in ("lambda", "sigma2", "r", "beta", "pi", "delta"):
+        for key in ("lambda", "sigma2", "r", "beta", "pi", "delta", "lambda_cluster", "dispersion", "baseline_hazard", "u"):
+            if key not in self.samples or (key == "sigma2" and self.family in ("poisson", "negative_binomial", "survival")):
+                continue
             if key in ("pi", "delta") and self.settings.get("selection") == "none":
                 continue
             values = self.samples[key]
             if values.ndim == 2:
                 yield key, values
             else:
-                labels = self.exposure_names if key in ("r", "delta") else self.covariate_names
+                labels = (self.exposure_names if key in ("r", "delta") else
+                          [f"interval{j+1}" for j in range(values.shape[-1])] if key == "baseline_hazard" else
+                          [repr(label) for label in self.data["cluster_levels"]] if key == "u" else self.covariate_names)
                 for j, label in enumerate(labels):
                     yield f"{key}[{label}]", values[:, :, j]
 
@@ -257,6 +343,7 @@ class BKMRFit:
             lines.append("Posterior inclusion probabilities")
             for row in self.inclusion_probabilities():
                 lines.append(f"  {row['variable']}: {row['pip']:.3f}")
+        lines.extend(self.sampling_info.get("warnings", []))
         lines.extend(self.diagnostics()["messages"])
         return "\n".join(lines)
 
@@ -330,14 +417,23 @@ class BKMRFit:
                 raise ValueError("Xnew and Znew must have the same number of rows")
         return np.column_stack((np.ones(rows), raw)) if intercept else raw
 
-    def _condition(self, standardized, chain, draw):
+    def _condition(self, standardized, chain, draw, cluster_new_codes=None):
         from ._kernel import conditional_h
 
+        if self.family in ("poisson", "negative_binomial", "survival"):
+            from ._prediction import conditional_saved_h
+            return conditional_saved_h(self.data["Z"], standardized,
+                                       self.samples["h"][chain, draw],
+                                       self.samples["r"][chain, draw],
+                                       self.samples["lambda"][chain, draw])
         ycont = self.samples["ystar"][chain, draw] if self.family == "binomial" else self.data["y"]
         return conditional_h(
             self.data["Z"], standardized, ycont, self.data["X"],
             self.samples["beta"][chain, draw], self.samples["r"][chain, draw],
             self.samples["lambda"][chain, draw], self.samples["sigma2"][chain, draw],
+            cluster_codes=self.data.get("cluster_codes"),
+            lambda_cluster=self.samples["lambda_cluster"][chain, draw] if "lambda_cluster" in self.samples else None,
+            cluster_new_codes=cluster_new_codes,
         )
 
     def _prediction_budget(self, rows, saved, *, moments=False):
@@ -349,7 +445,9 @@ class BKMRFit:
             raise ValueError("prediction exceeds the 512 MiB working-memory limit; "
                              "use fewer profiles or max_draws")
 
-    def _h_draws(self, standardized, indices, rng):
+    def _h_draws(self, standardized, indices, rng, cluster_new_codes=None):
+        if cluster_new_codes is not None:
+            return self._clustered_joint_draws(standardized, indices, rng, cluster_new_codes)
         self._prediction_budget(len(standardized), len(indices))
         unique, inverse = np.unique(standardized, axis=0, return_inverse=True)
         result = np.empty((self.settings["chains"], len(indices), len(standardized)))
@@ -380,31 +478,190 @@ class BKMRFit:
         values = self._h_draws(znew, self._indices(max_draws), np.random.default_rng(seed))
         return _prediction(values, probability, "h", "mean")
 
-    def predict(self, Znew=None, Xnew=None, *, kind="mean", scale="response",
-                probability=0.95, max_draws=None, seed=None):
-        """Sample joint outcome means or new observations.
+    def _new_cluster_codes(self, cluster_new, rows):
+        if cluster_new is None:
+            return None
+        if not self.settings.get("clustered", False):
+            raise ValueError("cluster_new requires a clustered fit")
+        from ._clusters import canonical_label
+        values = np.asarray(cluster_new, dtype=object)
+        if values.shape != (rows,):
+            raise ValueError("cluster_new must have one label per prediction row")
+        mapping = {canonical_label(label): j for j, label in enumerate(self.data["cluster_levels"])}
+        codes = []
+        for label in values:
+            key = canonical_label(label)
+            if key not in mapping:
+                mapping[key] = len(mapping)
+            codes.append(mapping[key])
+        return np.asarray(codes, dtype=int)
 
-        Binary response means are probabilities under the probit link. Gaussian
-        response means are on the outcome scale. New-data covariates exclude the
-        intercept column. Credible/predictive limits are posterior quantiles.
+    def _clustered_joint_draws(self, standardized, indices, rng, codes):
+        self._prediction_budget(len(standardized), len(indices))
+        values = np.empty((self.settings["chains"], len(indices), len(standardized)))
+        for chain in range(self.settings["chains"]):
+            for position, draw in enumerate(indices):
+                active = self.samples["r"][chain, draw] > 0
+                keys = np.column_stack((standardized[:, active], codes))
+                _, representatives, inverse = np.unique(keys, axis=0, return_index=True, return_inverse=True)
+                mean, covariance = self._condition(standardized[representatives], chain, draw,
+                                                    cluster_new_codes=codes[representatives])
+                values[chain, position] = _normal_draw(mean, covariance, rng)[inverse]
+        return values
+
+    def _generalized_u(self, codes, indices, rng):
+        values = np.zeros((self.settings["chains"], len(indices), len(codes)))
+        known = len(self.data["cluster_levels"])
+        unique, inverse = np.unique(codes, return_inverse=True)
+        for chain in range(self.settings["chains"]):
+            for position, draw in enumerate(indices):
+                local = np.empty(len(unique))
+                for j, code in enumerate(unique):
+                    local[j] = (self.samples["u"][chain, draw, code] if code < known else
+                                rng.normal(scale=np.sqrt(self.samples["lambda_cluster"][chain, draw])))
+                values[chain, position] = local[inverse]
+        return values
+
+    def random_intercepts(self, cluster_new=None, *, probability=.95, max_draws=None, seed=None):
+        """Joint random-intercept draws in training-level or supplied label order.
+
+        Known clusters use their posterior; unseen labels share new intercepts
+        when equal. Row labels default to ``data['cluster_levels']``.
+        """
+        if not self.settings.get("clustered", False):
+            raise ValueError("random_intercepts requires a clustered fit")
+        labels = self.data["cluster_levels"] if cluster_new is None else cluster_new
+        codes = self._new_cluster_codes(labels, len(labels))
+        indices = self._indices(max_draws)
+        self._prediction_budget(len(codes), len(indices))
+        rng = np.random.default_rng(seed)
+        if self.family in ("poisson", "negative_binomial", "survival"):
+            values = self._generalized_u(codes, indices, rng)
+        else:
+            from scipy.linalg import cho_solve
+
+            from ._kernel import covariance_components
+            unique, inverse = np.unique(codes, return_inverse=True)
+            train = self.data["cluster_codes"]
+            cross = (unique[:, None] == train[None, :]).astype(float)
+            prior = (unique[:, None] == unique[None, :]).astype(float)
+            values = np.empty((self.settings["chains"], len(indices), len(codes)))
+            for chain in range(self.settings["chains"]):
+                for position, draw in enumerate(indices):
+                    amplitude = self.samples["lambda_cluster"][chain, draw]
+                    _, _, lower = covariance_components(self.data["Z"], self.samples["r"][chain, draw],
+                        self.samples["lambda"][chain, draw], cluster_codes=train, lambda_cluster=amplitude)
+                    ycont = self.samples["ystar"][chain, draw] if self.family == "binomial" else self.data["y"]
+                    residual = ycont - self.data["X"] @ self.samples["beta"][chain, draw]
+                    mean = amplitude * cross @ cho_solve((lower, True), residual)
+                    covariance = self.samples["sigma2"][chain, draw] * (
+                        amplitude*prior-amplitude**2*cross@cho_solve((lower, True), cross.T))
+                    values[chain, position] = _normal_draw(mean, covariance, rng)[inverse]
+        return _prediction(values, probability, "random_intercept", "mean")
+
+    def predict(self, Znew=None, Xnew=None, *, kind="mean", scale="response",
+                probability=0.95, max_draws=None, seed=None, offset=None, cluster_new=None):
+        """Joint mean/observation draws, with an explicit prediction-cluster policy.
+
+        Omitted ``cluster_new`` fixes the random intercept to zero; this is not
+        population marginalization. Known labels condition on their posterior;
+        unseen equal labels share a new random intercept. Count offsets are log
+        observation exposures. Survival means are relative hazards; use
+        ``predict_survival`` for survival or hazard curves.
         """
         if kind not in ("mean", "observation") or scale not in ("response", "latent"):
             raise ValueError("kind must be mean/observation and scale response/latent")
+        if self.family == "survival" and kind == "observation":
+            raise ValueError("survival observation draws are not supported; use predict_survival")
+        count_family = self.family in ("poisson", "negative_binomial")
+        if count_family and kind == "observation" and scale == "latent":
+            raise ValueError("count observations require scale='response'")
+        if offset is not None and not count_family:
+            raise ValueError("offset only applies to count predictions")
         _probability(probability)
         znew = self._new_exposures(Znew)
         xnew = self._new_design(Xnew, len(znew), Znew is None)
+        codes = self._new_cluster_codes(cluster_new, len(znew))
         indices = self._indices(max_draws)
         rng = np.random.default_rng(seed)
-        values = self._h_draws(znew, indices, rng)
+        generalized = self.family in ("poisson", "negative_binomial", "survival")
+        values = self._h_draws(znew, indices, rng, None if generalized else codes)
+        if generalized and codes is not None:
+            values += self._generalized_u(codes, indices, rng)
         values += np.einsum("cdp,np->cdn", self.samples["beta"][:, indices], xnew)
+        if count_family:
+            if offset is None:
+                if Znew is None:
+                    offsets = self.data["offset"]
+                elif self.settings.get("offset_used", False):
+                    raise ValueError("offset is required for new rows because offsets were used in fitting")
+                else:
+                    offsets = np.zeros(len(znew))
+            else:
+                offsets = np.asarray(offset, dtype=float)
+                if offsets.shape != (len(znew),) or not np.isfinite(offsets).all():
+                    raise ValueError("offset must be a finite vector with one entry per prediction row")
+            values += offsets
         if self.family == "binomial" and scale == "response":
             values = ndtr(values)
             if kind == "observation":
                 values = rng.binomial(1, values).astype(float)
+        elif generalized and scale == "response":
+            with np.errstate(over="ignore"):
+                values = np.exp(values)
+            if not np.isfinite(values).all():
+                raise FloatingPointError("log-link predictions overflowed; inspect priors and fitted draws")
+            if kind == "observation":
+                try:
+                    if self.family == "poisson":
+                        values = rng.poisson(values).astype(float)
+                    else:
+                        dispersion = self.samples["dispersion"][:, indices, None]
+                        values = rng.negative_binomial(dispersion, dispersion/(dispersion+values)).astype(float)
+                except ValueError as exc:
+                    raise FloatingPointError("predictive counts exceed the random generator's numeric range") from exc
         elif kind == "observation":
             sigma = np.sqrt(self.samples["sigma2"][:, indices, None])
             values += rng.normal(size=values.shape) * sigma
         return _prediction(values, probability, scale, kind)
+
+    def predict_survival(self, Znew=None, Xnew=None, *, times, kind="survival", cluster_new=None,
+                         probability=.95, max_draws=None, seed=None):
+        """Pointwise survival probabilities or hazards for right-censored PH fits.
+
+        The final baseline interval extends beyond observed follow-up. Predictions
+        there rely on the constant final-hazard extrapolation assumption.
+        """
+        if self.family != "survival":
+            raise ValueError("predict_survival requires a survival fit")
+        if kind not in ("survival", "hazard"):
+            raise ValueError("kind must be survival or hazard")
+        times = np.asarray(times, dtype=float)
+        if times.ndim != 1 or not len(times) or not np.isfinite(times).all() or np.any(times < 0) or np.any(np.diff(times) <= 0):
+            raise ValueError("times must be finite, nonnegative and strictly increasing")
+        indices = self._indices(max_draws)
+        rows = len(self.data["y"]) if Znew is None else len(np.atleast_2d(Znew))
+        estimated = 8 * 6 * self.settings["chains"] * len(indices) * rows * len(times)
+        if estimated > 512 * 1024 * 1024:
+            raise ValueError("survival prediction exceeds the 512 MiB working-memory limit")
+        eta = self.predict(Znew, Xnew, scale="latent", kind="mean", cluster_new=cluster_new,
+                           probability=probability, max_draws=max_draws, seed=seed).draws
+        baseline = self.samples["baseline_hazard"][:, indices]
+        breaks = self.data["baseline_breaks"]
+        from ._likelihoods import interval_durations
+        cumulative = np.einsum("cdj,tj->cdt", baseline, interval_durations(times, breaks))
+        if kind == "survival":
+            log_cumulative = np.full_like(cumulative, -np.inf)
+            np.log(cumulative, out=log_cumulative, where=cumulative > 0)
+            with np.errstate(over="ignore", under="ignore"):
+                values = np.exp(-np.exp(eta[..., None] + log_cumulative[:, :, None, :]))
+        else:
+            selected = baseline[..., np.searchsorted(breaks, times, side="left")]
+            with np.errstate(over="ignore"):
+                values = np.exp(eta[..., None] + np.log(selected[:, :, None, :]))
+            if not np.isfinite(values).all():
+                raise FloatingPointError("hazard predictions overflowed")
+        return _survival_prediction(values, times, probability, kind)
 
     def posterior_moments_h(self, Znew=None, max_draws=None):
         """Integrate conditional GP moments over selected saved states.

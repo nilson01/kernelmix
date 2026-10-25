@@ -1,6 +1,6 @@
 # An exposure-mixture analysis
 
-KernelMix fits Bayesian kernel machine regression (BKMR) for a continuous outcome or a binary outcome with a probit link. The exposure-response function, called `h`, can include nonlinear associations and interactions. Adjustment covariates enter linearly.
+KernelMix fits Bayesian kernel machine regression (BKMR) for continuous, binary, count and right-censored survival outcomes. The exposure-response function, called `h`, can include nonlinear associations and interactions. Adjustment covariates enter linearly.
 
 This tutorial uses small, deterministic example data. Run its Python blocks in order after installing the source package as described in the [README](../README.md). The short chains make the examples quick to run. They are too short to support inference. For an analysis, choose longer runs, inspect mixing and effective sample sizes, and check sensitivity to prior choices.
 
@@ -99,6 +99,103 @@ probability_contrast = km.overall_effect(
 ```
 
 Binary mean predictions are probabilities. With `kind="observation"`, predictions are zero-or-one outcomes. A response-scale contrast subtracts predicted probabilities after applying the probit transformation to each joint draw. It is not an odds ratio. In exposure summaries, `X` is one raw adjustment vector held constant at every profile. If it is omitted, response-scale summaries use the retained training covariate means. Latent-scale summaries use `h` alone and do not accept `X`.
+
+## Fit counts and include observation time
+
+Use `"poisson"` for conditional Poisson counts or `"negative_binomial"` for
+additional conditional variation. An offset is the log observation time or
+another known exposure amount. It enters with coefficient one.
+
+```python
+counts = np.array([0, 1, 0, 2, 1, 3, 1, 2, 4, 3, 5, 2])
+observation_time = np.array([1, 1, 2, 1, 2, 1, 1, 3, 1, 2, 1, 1])
+count_fit = km.fit(
+    counts, Z, family="negative_binomial", offset=np.log(observation_time),
+    draws=12, warmup=12, chains=2, seed=24,
+)
+count_mean = count_fit.predict(Z[:3], offset=np.log(observation_time[:3]), seed=25)
+count_observation = count_fit.predict(
+    Z[:3], offset=np.log(observation_time[:3]), kind="observation", seed=25,
+)
+```
+
+`count_mean` describes expected counts for the supplied observation times.
+Observation predictions are nonnegative integer counts. Set `family="poisson"`
+to use the Poisson model. The negative-binomial `dispersion` parameter controls
+extra variation; it is separate from variation due to exposures or clusters.
+Response-scale exposure summaries use an offset of zero, so they compare counts
+per unit observation exposure. Their latent scale describes changes in `h`,
+which enter the log mean. These models use proper coefficient priors; see the
+model guide for their defaults.
+
+## Fit right-censored survival times
+
+Each observation supplies a positive observed time and an event indicator:
+`1` means the event occurred; `0` means follow-up ended first. The model uses
+proportional hazards with a piecewise-constant baseline hazard.
+
+```python
+observed_time = np.array([1.0, 1.4, 2.0, 2.6, 3.0, 3.8, 4.0, 4.7, 5.2, 6.0, 6.4, 7.0])
+event = np.array([1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0])
+survival_fit = km.fit(
+    observed_time, Z, family="survival", event=event,
+    baseline_breaks=[2.0, 4.0], intercept=False,
+    draws=12, warmup=12, chains=2, seed=26,
+)
+survival = survival_fit.predict_survival(
+    Z[:2], times=np.linspace(0, 7, 30), seed=27,
+)
+survival_ax = km.plot_survival(survival)
+log_hr = km.overall_effect(survival_fit, quantiles=[0.75], reference=0.25, seed=27)
+hr_draws = np.exp(log_hr.draws)
+hr_interval = np.quantile(hr_draws, [0.025, 0.975], axis=(0, 1))
+```
+
+The baseline intervals are $(0,2]$, $(2,4]$ and $(4,\infty)$ in this example.
+An event exactly at a cut belongs to the interval on its left. The model assumes
+independent right censoring and proportional hazards. It does not support delayed
+entry, competing risks or time-varying covariates. Beyond observed follow-up,
+predictions extend the final constant baseline hazard. Such extrapolation needs
+scientific justification.
+
+`predict_survival` returns survival probabilities, or hazards with
+`kind="hazard"`. Ordinary `predict` returns relative hazards for this family.
+Response-scale exposure contrasts therefore subtract relative hazards; they do
+not subtract survival probabilities. For hazard ratios, exponentiate each
+latent `h` contrast before summarizing it. The baseline and a fitted intercept
+share a scale, so this example omits the intercept.
+
+![Count response and survival probabilities. (a) Negative-binomial mean counts as $z_1$ varies, with offset zero. (b) Survival probabilities at the first exposure's 25th and 75th percentiles. Other exposures are fixed at their medians and $u=0$. Shading shows pointwise 95% credible intervals.](figures/count-survival.png)
+
+The figure uses the data above, 200 warmup and 200 saved draws per chain,
+two chains, and the same seeds.
+Predictions use 100 draws per chain. These short fits have mixing warnings and illustrate the outputs;
+they do not support inference or establish interval calibration.
+[Figure values](figures/count-survival.csv).
+
+## Account for clustered observations
+
+`cluster` labels observations that share a Gaussian random intercept. It is
+separate from `groups`, which groups exposures for selection. All five families
+accept `cluster`.
+
+```python
+cluster = ["A"] * 3 + ["B"] * 3 + ["C"] * 3 + ["D"] * 3
+clustered_fit = km.fit(
+    counts, Z, family="poisson", cluster=cluster,
+    draws=12, warmup=12, chains=2, seed=28,
+)
+intercepts = clustered_fit.random_intercepts(seed=29)
+cluster_prediction = clustered_fit.predict(
+    Z[:3], cluster_new=["A", "new", "new"], seed=29,
+)
+```
+
+Known prediction labels use their posterior random intercept. Repeated unseen
+labels share one new intercept per posterior draw. Omitting `cluster_new` fixes
+the prediction random intercept to zero; this is not an average over clusters.
+The exposure summaries also use a zero random intercept. This model captures
+shared intercept variation, not arbitrary within-cluster time dependence.
 
 ## Plot the results
 

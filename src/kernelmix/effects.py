@@ -148,6 +148,8 @@ def _evaluate(fit, profiles, coefficients, locations, *, scale, X, probability,
         covariates = raw.mean(axis=0) if X is None else np.asarray(X, dtype=float)
         if covariates.ndim != 1 or covariates.size != raw.shape[1] or not np.isfinite(covariates).all():
             raise ValueError('X must be a finite vector of raw adjustment covariates')
+        if fit.family in ('poisson', 'negative_binomial'):
+            options['offset'] = np.zeros(len(unique))
         prediction = fit.predict(unique, Xnew=np.tile(covariates, (len(unique), 1)),
                                  kind='mean', scale='response', **options)
     d = np.asarray(prediction.draws)
@@ -159,6 +161,9 @@ def _evaluate(fit, profiles, coefficients, locations, *, scale, X, probability,
     meta = {} if metadata is None else dict(metadata)
     meta['covariates'] = None if covariates is None else covariates.copy()
     meta['family'] = fit.family
+    if scale == 'response' and fit.family in ('poisson', 'negative_binomial', 'survival'):
+        meta['random_intercept'] = 'zero'
+        meta['response_quantity'] = 'relative_hazard' if fit.family == 'survival' else 'unit-exposure count mean'
     return cls(draws=values, mean=flat.mean(axis=0),
                sd=flat.std(axis=0, ddof=1 if len(flat) > 1 else 0),
                lower=np.quantile(flat, tail, axis=0),

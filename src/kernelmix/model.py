@@ -140,7 +140,8 @@ def _check_probit_design(y, design):
 def fit(y, Z, X=None, *, family='gaussian', draws=1000, warmup=1000,
         chains=4, thin=1, seed=None, standardize=True, intercept=True,
         selection='none', groups=None, prior=None, r_fixed=None, missing='raise',
-        exposure_names=None, covariate_names=None, initial=None, proposal_scales=None):
+        exposure_names=None, covariate_names=None, initial=None, proposal_scales=None,
+        cluster=None, offset=None, event=None, baseline_breaks=None):
     """Fit dense Bayesian kernel machine regression using sequential chains.
 
     ``draws`` counts retained states per chain after ``warmup`` and ``thin``.
@@ -152,8 +153,28 @@ def fit(y, Z, X=None, *, family='gaussian', draws=1000, warmup=1000,
     ``initial`` is a shared dictionary (beta, r, lambda, sigma2, delta, pi,
     and binomial ystar). ``proposal_scales`` accepts positive log-scale
     standard deviations ``r`` and ``lambda`` (defaults .3). They are fixed,
-    including after warmup. Fitting does not establish convergence.
+    including after warmup. ``cluster`` supplies observation-cluster labels;
+    it adds an independent Gaussian random intercept with sampled amplitude
+    ``lambda_cluster`` (proposal scale ``cluster_lambda``). ``offset`` is for
+    count models, and ``event``/``baseline_breaks`` are for survival models.
+    Count and survival fits use proper coefficient priors and family-specific
+    amplitude defaults; see the model guide. Survival uses a piecewise-
+    exponential proportional-hazards model with right censoring.
+    Fitting does not establish convergence.
     """
+    if family in ('poisson', 'negative_binomial', 'survival'):
+        from ._generalized import fit_generalized
+        return fit_generalized(
+            y, Z, X, family=family, draws=draws, warmup=warmup, chains=chains,
+            thin=thin, seed=seed, standardize=standardize, intercept=intercept,
+            selection=selection, groups=groups, prior=prior, r_fixed=r_fixed,
+            missing=missing, exposure_names=exposure_names,
+            covariate_names=covariate_names, initial=initial,
+            proposal_scales=proposal_scales, cluster=cluster, offset=offset,
+            event=event, baseline_breaks=baseline_breaks,
+        )
+    if offset is not None or event is not None or baseline_breaks is not None:
+        raise ValueError('offset is only for counts; event and baseline_breaks are only for survival')
     start = time.perf_counter()
     draws, warmup, chains, thin = (_count(draws, 'draws', 2), _count(warmup, 'warmup', 0),
                                    _count(chains, 'chains', 1), _count(thin, 'thin', 1))
@@ -171,15 +192,18 @@ def fit(y, Z, X=None, *, family='gaussian', draws=1000, warmup=1000,
         prior = Prior(**prior)
     if not isinstance(prior, Prior):
         raise ValueError('prior must be a Prior, dictionary, or None')
+    clustered = cluster is not None
     scales = {'r': 0.3, 'lambda': 0.3}
+    if clustered:
+        scales['cluster_lambda'] = 0.3
     if proposal_scales is not None:
         if not isinstance(proposal_scales, dict) or set(proposal_scales) - set(scales):
-            raise ValueError("proposal_scales accepts only 'r' and 'lambda'")
+            raise ValueError(f'proposal_scales accepts only {list(scales)}')
         scales.update(proposal_scales)
     scales = {key: _positive(value, f'proposal_scales[{key}]') for key, value in scales.items()}
     data = prepare_data(y, Z, X, family=family, standardize=standardize, intercept=intercept,
                         missing=missing, exposure_names=exposure_names,
-                        covariate_names=covariate_names, groups=groups)
+                        covariate_names=covariate_names, groups=groups, cluster=cluster)
     n, m = data['Z'].shape
     p = data['X'].shape[1]
     fixed = None
@@ -194,9 +218,9 @@ def fit(y, Z, X=None, *, family='gaussian', draws=1000, warmup=1000,
     if family == 'binomial' and p:
         _check_probit_design(data['y'], data['X'])
     # Conservative allocation guards for the exact dense implementation.
-    if 8 * n * n * 8 > 512 * 1024 ** 2:
+    if 8 * n * n * (9 if clustered else 8) > 512 * 1024 ** 2:
         raise ValueError('dense covariance working storage exceeds the 512 MiB safety budget; use fewer observations')
-    saved_bytes = chains * draws * (8 * (p + m + 3 + (n if family == 'binomial' else 0)) + m)
+    saved_bytes = chains * draws * (8 * (p + m + 3 + int(clustered) + (n if family == 'binomial' else 0)) + m)
     if saved_bytes > 1024 ** 3:
         raise ValueError('saved posterior arrays exceed the 1 GiB safety budget; reduce draws/chains or fit size')
     shape = (chains, draws)
@@ -204,6 +228,8 @@ def fit(y, Z, X=None, *, family='gaussian', draws=1000, warmup=1000,
                    lambda_=np.empty(shape), sigma2=np.empty(shape),
                    delta=np.empty(shape + (m,), dtype=bool), pi=np.empty(shape))
     samples['lambda'] = samples.pop('lambda_')
+    if clustered:
+        samples['lambda_cluster'] = np.empty(shape)
     if family == 'binomial':
         samples['ystar'] = np.empty(shape + (n,))
     selection_units = ([np.array([j]) for j in range(m)] if selection == 'component' else
@@ -214,10 +240,22 @@ def fit(y, Z, X=None, *, family='gaussian', draws=1000, warmup=1000,
     chain_info = []
     for chain_index, child in enumerate(children):
         rng = np.random.default_rng(child)
-        beta, r, lambda_, sigma2, delta, pi, latent = _initial(initial, data, prior, family, selection, fixed, rng)
-        _, _, lower = covariance_components(data['Z'], r, lambda_)
+        chain_initial = initial
+        lambda_cluster = None
+        if isinstance(initial, dict) and 'lambda_cluster' in initial:
+            if not clustered:
+                raise ValueError('initial lambda_cluster requires cluster labels')
+            chain_initial = initial.copy()
+            lambda_cluster = _positive(chain_initial.pop('lambda_cluster'), 'initial lambda_cluster')
+        if clustered and lambda_cluster is None:
+            lambda_cluster = prior.cluster_lambda_mean
+        beta, r, lambda_, sigma2, delta, pi, latent = _initial(chain_initial, data, prior, family, selection, fixed, rng)
+        _, _, lower = covariance_components(data['Z'], r, lambda_,
+                                             cluster_codes=data['cluster_codes'],
+                                             lambda_cluster=lambda_cluster)
+        count_keys = ('lambda', 'r', 'selection', 'cluster_lambda') if clustered else ('lambda', 'r', 'selection')
         counts = {key: {'accepted': 0, 'proposed': 0, 'warmup_accepted': 0, 'warmup_proposed': 0}
-                  for key in ('lambda', 'r', 'selection')}
+                  for key in count_keys}
         saved = 0
         for iteration in range(warmup + draws * thin):
             is_warmup = iteration < warmup
@@ -241,14 +279,18 @@ def fit(y, Z, X=None, *, family='gaussian', draws=1000, warmup=1000,
                     raise FloatingPointError('sigma2 update overflowed; rescale the outcome/prior')
             current_ll = _log_likelihood(lower, residual, sigma2)
 
-            def attempt(candidate_r, candidate_lambda, log_adjustment, kind):
-                nonlocal r, lambda_, lower, current_ll
+            def attempt(candidate_r, candidate_lambda, log_adjustment, kind, candidate_cluster=None):
+                nonlocal r, lambda_, lambda_cluster, lower, current_ll
                 counter = counts[kind]
                 counter['warmup_proposed' if is_warmup else 'proposed'] += 1
                 if not np.isfinite(log_adjustment):
                     return False
                 try:
-                    _, _, candidate_lower = covariance_components(data['Z'], candidate_r, candidate_lambda)
+                    candidate_cluster = lambda_cluster if candidate_cluster is None else candidate_cluster
+                    _, _, candidate_lower = covariance_components(
+                        data['Z'], candidate_r, candidate_lambda,
+                        cluster_codes=data['cluster_codes'], lambda_cluster=candidate_cluster,
+                    )
                     candidate_ll = _log_likelihood(candidate_lower, residual, sigma2)
                 except (ValueError, FloatingPointError, np.linalg.LinAlgError):
                     return False
@@ -258,6 +300,7 @@ def fit(y, Z, X=None, *, family='gaussian', draws=1000, warmup=1000,
                 uniform = rng.random()
                 if uniform == 0 or math.log(uniform) < min(0.0, ratio):
                     r, lambda_, lower, current_ll = candidate_r.copy(), candidate_lambda, candidate_lower, candidate_ll
+                    lambda_cluster = candidate_cluster
                     counter['warmup_accepted' if is_warmup else 'accepted'] += 1
                     return True
                 return False
@@ -272,6 +315,19 @@ def fit(y, Z, X=None, *, family='gaussian', draws=1000, warmup=1000,
                 attempt(r, candidate, adjustment, 'lambda')
             else:
                 attempt(r, lambda_, -np.inf, 'lambda')
+            if clustered:
+                log_cluster = math.log(lambda_cluster) + rng.normal(scale=scales['cluster_lambda'])
+                with np.errstate(over='ignore', under='ignore'):
+                    candidate_cluster = float(np.exp(log_cluster))
+                if np.isfinite(candidate_cluster) and candidate_cluster > 0:
+                    adjustment = (
+                        gamma_logpdf(candidate_cluster, prior.cluster_lambda_mean, prior.cluster_lambda_sd)
+                        - gamma_logpdf(lambda_cluster, prior.cluster_lambda_mean, prior.cluster_lambda_sd)
+                        + log_cluster - math.log(lambda_cluster)
+                    )
+                    attempt(r, lambda_, adjustment, 'cluster_lambda', candidate_cluster)
+                else:
+                    attempt(r, lambda_, -np.inf, 'cluster_lambda')
             if selection != 'none':
                 for unit in selection_units:
                     proposed_delta = delta.copy()
@@ -307,6 +363,8 @@ def fit(y, Z, X=None, *, family='gaussian', draws=1000, warmup=1000,
             if not is_warmup and (iteration - warmup + 1) % thin == 0:
                 for key, value in (('beta', beta), ('r', r), ('lambda', lambda_), ('sigma2', sigma2), ('delta', delta), ('pi', pi)):
                     samples[key][chain_index, saved] = value
+                if clustered:
+                    samples['lambda_cluster'][chain_index, saved] = lambda_cluster
                 if family == 'binomial':
                     samples['ystar'][chain_index, saved] = latent
                 saved += 1
@@ -318,7 +376,7 @@ def fit(y, Z, X=None, *, family='gaussian', draws=1000, warmup=1000,
     settings = dict(family=family, draws=draws, warmup=warmup, chains=chains, thin=thin,
                     seed=seed, standardize=bool(standardize), intercept=bool(intercept),
                     selection=selection, prior=asdict(prior), proposal_scales=scales,
-                    r_fixed=None if fixed is None else fixed.tolist())
+                    r_fixed=None if fixed is None else fixed.tolist(), clustered=clustered)
     sampling_info = dict(runtime_seconds=time.perf_counter() - start, chains=chain_info,
                          algorithm='dense marginal MH/Gibbs', proposal_adaptation=False,
                          seed_entropy=int(seed_sequence.entropy))
