@@ -6,7 +6,7 @@ import numpy as np
 
 
 def canonical_label(value):
-    """Return a hashable typed identity; integer1 differs from string'1'.
+    """Return a hashable typed identity; integer 1 differs from string '1'.
 
     Accept only integers (excluding booleans) and nonempty strings. Missing
     values are handled by ``cluster_mask``, never treated as an actual level.

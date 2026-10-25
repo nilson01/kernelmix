@@ -87,7 +87,7 @@ class CompetingRiskPrediction:
 
 
 class StructuredFit(BKMRFit):
-    """Selected kernel/basis, random-coefficient and extended survival posterior.
+    """Posterior results for kernels, GP bases, random coefficients and survival.
 
     Stored ``lambda`` is the direct GP variance (Bobb's tau), including for
     Gaussian outcomes. Default omitted cluster labels fix random effects at zero.
@@ -602,7 +602,11 @@ class StructuredFit(BKMRFit):
     def predict_residual_variance(
         self, Znew=None, *, variance_design_new=None, probability=0.95, max_draws=None
     ):
-        """Marginal observation residual variance sigma2*exp(V gamma), excluding h/b uncertainty."""
+        """Return marginal residual variance draws, sigma2*exp(V gamma).
+
+        V is the variance design and gamma its coefficients. These draws exclude
+        uncertainty in the exposure function and random effects.
+        """
         if self.family != "gaussian":
             raise ValueError("residual variance prediction requires Gaussian outcomes")
         rows = len(self._new_exposures(Znew))
@@ -897,6 +901,13 @@ class StructuredFit(BKMRFit):
         max_draws=None,
         seed=None,
     ):
+        """Return survival probabilities or cause-specific hazards for fixed profiles.
+
+        Curves condition on survival to ``entry``. Survival probabilities use
+        all fitted causes; hazards use the cause selected by ``for_cause``
+        (the first cause by default). The final baseline hazard extends beyond
+        the last cutpoint while each profile's predictors stay constant.
+        """
         if kind not in ("survival", "hazard"):
             raise ValueError("kind must be survival or hazard")
         s, _, a, t, _ = self._survival_draws(
@@ -928,6 +939,12 @@ class StructuredFit(BKMRFit):
         max_draws=None,
         seed=None,
     ):
+        """Return probabilities of failure from each cause by each requested time.
+
+        Probabilities condition on survival to ``entry`` and include all fitted
+        competing causes. ``cause=None`` returns all causes jointly; an integer
+        selects one cause, numbered from one.
+        """
         _, f, _, t, _ = self._survival_draws(
             Znew,
             Xnew,

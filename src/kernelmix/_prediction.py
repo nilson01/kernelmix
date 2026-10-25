@@ -13,8 +13,9 @@ def _check_support(h, basis):
 def conditional_saved_h(training, new, h, r, amplitude):
     """Condition a Gaussian process on saved training h, including PSD kernels.
 
-    Eigenvalues below 100*n*machine-epsilon*largest-eigenvalue define numerical
-    null directions. No diagonal jitter is added. Observed training profiles
+    Eigenvalues at most 100*n*machine_epsilon*max(1, largest_eigenvalue)
+    define numerical null directions, where n is the training row count.
+    No diagonal jitter is added. Observed training profiles
     retain their saved h exactly. This is floating-point rank handling, not a
     low-rank approximation selected for computation speed.
     """

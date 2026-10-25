@@ -1,6 +1,8 @@
-"""Dense marginalized BKMR sampler for Gaussian and binary/probit outcomes.
+"""Bayesian kernel machine regression (BKMR) fitting and sampler selection.
 
-The statistical target follows bkmr 0.2.2, with different MH proposal paths.
+The default Gaussian/probit target follows bkmr 0.2.2, with different
+Metropolis-Hastings proposals. Other supported inputs select the generalized
+or structured sampler.
 No global random state is used and chains run sequentially.
 """
 
@@ -210,7 +212,7 @@ def fit(
     subject=None,
     n_causes=None,
 ):
-    """Fit dense Bayesian kernel machine regression using sequential chains.
+    """Fit Bayesian kernel machine regression using sequential chains.
 
     ``draws`` counts retained states per chain after ``warmup`` and ``thin``.
     The probit model fixes residual variance at one. ``selection='group'``
@@ -218,19 +220,23 @@ def fit(
     defaults are documented in :class:`Prior`. Dense storage/solves require
     quadratic memory and cubic time in the retained sample size.
 
-    ``initial`` is a shared dictionary (beta, r, lambda, sigma2, delta, pi,
-    and binomial ystar). ``proposal_scales`` accepts positive log-scale
-    standard deviations ``r`` and ``lambda`` (defaults .3). They are fixed,
-    including after warmup. ``cluster`` supplies observation-cluster labels;
-    it adds an independent Gaussian random intercept with sampled amplitude
+    For the default Gaussian/probit sampler, ``initial`` is a shared dictionary
+    (beta, r, lambda, sigma2, delta, pi, and binomial ystar).
+    ``proposal_scales`` accepts positive log-scale standard deviations ``r``
+    and ``lambda`` (defaults .3). They are fixed,
+    including after warmup. Initial values and proposal keys for other samplers
+    are described in the model and structured-model guides.
+    ``cluster`` supplies observation-cluster labels for a random intercept;
+    in the default Gaussian/probit sampler, its sampled amplitude is
     ``lambda_cluster`` (proposal scale ``cluster_lambda``). ``offset`` is for
     count models, and ``event``/``baseline_breaks`` are for survival models.
     Count and survival fits use proper coefficient priors and family-specific
     amplitude defaults; see the model guide. Survival uses a piecewise-
     exponential proportional-hazards model with right censoring.
     Alternative kernels, finite GP bases, random slopes, residual correlation,
-    variance regression or extended survival inputs use the structured sampler
-    with separately documented proper priors and direct GP variance. See the
+    variance regression, extended survival inputs, or nondefault structured
+    settings (such as ``random_scale``) use the structured sampler with
+    separately documented proper priors and direct GP variance. See the
     structured-model guide for these input and prediction contracts.
     Fitting does not establish convergence.
     """

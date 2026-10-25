@@ -2,7 +2,7 @@
 
 KernelMix fits Bayesian kernel machine regression (BKMR) for continuous, binary, count and right-censored survival outcomes. The exposure-response function, called `h`, can include nonlinear associations and interactions. Adjustment covariates enter linearly.
 
-This tutorial uses small, deterministic example data. Run its Python blocks in order after installing the source package as described in the [README](../README.md). The short chains make the examples quick to run. They are too short to support inference. For an analysis, choose longer runs, inspect mixing and effective sample sizes, and check sensitivity to prior choices.
+This tutorial uses small, deterministic example data. Run its Python blocks in order after installing the source package as described in the [README](../README.md). The chains illustrate the workflow; they are too short for inference. Use longer runs, inspect mixing and effective sample sizes, and check prior sensitivity for an analysis.
 
 ## Define the data
 
@@ -38,7 +38,7 @@ pip_rows = gaussian.inclusion_probabilities()
 checks = gaussian.diagnostics()
 ```
 
-The summary gives posterior means, standard deviations and pointwise credible intervals. Diagnostics include split R-hat, which compares chains, and effective sample sizes, which account for dependence between saved draws. These checks help detect sampling problems; passing them does not establish that the model fits the scientific question. PIPs depend on the selection model and priors and are not causal importance scores.
+The summary gives posterior means, standard deviations and credible intervals. Split R-hat compares chains; effective sample sizes account for dependence between draws. These diagnostics detect some sampling problems but cannot validate the model. PIPs depend on selection priors and do not measure causal importance.
 
 ## Predict at exposure profiles
 
@@ -153,8 +153,9 @@ hr_interval = np.quantile(hr_draws, [0.025, 0.975], axis=(0, 1))
 
 The baseline intervals are $(0,2]$, $(2,4]$ and $(4,\infty)$ in this example.
 An event exactly at a cut belongs to the interval on its left. The model assumes
-independent right censoring and proportional hazards. It does not support delayed
-entry, competing risks or time-varying covariates. Beyond observed follow-up,
+independent right censoring and proportional hazards. For delayed entry, competing
+causes or known covariate paths, use the [structured interface](structured.md).
+Beyond observed follow-up,
 predictions extend the final constant baseline hazard. Such extrapolation needs
 scientific justification.
 
@@ -195,11 +196,13 @@ Known prediction labels use their posterior random intercept. Repeated unseen
 labels share one new intercept per posterior draw. Omitting `cluster_new` fixes
 the prediction random intercept to zero; this is not an average over clusters.
 The exposure summaries also use a zero random intercept. This model captures
-shared intercept variation, not arbitrary within-cluster time dependence.
+shared intercept variation. For random slopes and Gaussian residual correlation,
+see [structured models](structured.md).
 
 ## Plot the results
 
-Install the optional Matplotlib dependency to use these functions. Each returns an axes object. The caller controls display and export.
+Plotting requires Matplotlib (`[plots]`). Each function returns an axes object;
+the caller controls display and export.
 
 ```python
 trace_ax = km.plot_trace(gaussian)

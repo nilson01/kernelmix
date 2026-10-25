@@ -2,15 +2,16 @@
 
 Bayesian kernel machine regression (BKMR) for exposure mixtures in Python.
 KernelMix estimates a flexible exposure–response function, with linear adjustment
-for covariates. It supports continuous, binary, count and right-censored survival outcomes,
-with random intercepts and slopes for clustered observations. NumPy and SciPy handle fitting and prediction; R is not required.
+for covariates. It supports continuous, binary, count and survival outcomes.
+NumPy and SciPy handle fitting and prediction; R is not required.
 
 | Analysis | Functions |
 | --- | --- |
 | Fit outcomes | `fit`, `Prior`: Gaussian, probit, Poisson, negative binomial and piecewise-exponential survival |
 | Cluster observations | Random intercepts/slopes; Gaussian AR1, exponential or supplied residual correlations |
 | Model unequal residual variance | Gaussian variance regression and residual-variance prediction |
-| Choose a GP representation | Gaussian, Matérn 3/2 or rational-quadratic kernels; dense, predictive-process or random-Fourier bases |
+| Choose a Gaussian process (GP) representation | Gaussian, Matérn 3/2 or rational-quadratic kernels; dense, predictive-process or random-Fourier bases |
+| Model survival records | Delayed entry, competing causes, known predictor histories and left/interval censoring |
 | Select exposures or exposure groups | `selection="component"` or `"group"`, posterior inclusion probabilities |
 | Inspect results | `summary`, `diagnostics`, `posterior_samples` |
 | Predict | `predict_h`, `predict`, `predict_survival`, `posterior_moments_h` |
@@ -58,9 +59,8 @@ lambda               16.93      9.047      4.145      38.61
 sigma2              0.2159    0.08346     0.1142     0.4188
 ```
 
-These short chains trigger mixing warnings. This example demonstrates the workflow.
-Choose chain lengths using mixing,
-effective sample size and the precision needed for the analysis.
+These illustrative chains trigger mixing warnings. Choose longer runs using
+chain mixing, effective sample size and the precision needed for the analysis.
 
 ![Exposure response curve with pointwise 95% credible intervals](docs/figures/response.png)
 
@@ -69,21 +69,19 @@ all-median reference. It shows an association, not an identified causal effect.
 
 ## Documentation
 
-- [Observed ozone analysis](docs/airquality.md): data, fit, results and limitations.
-- [Reference studies](docs/reproduction.md): comparison evidence and original-study gaps.
+| Need | Guide |
+| --- | --- |
+| Run an analysis | [Tutorial](docs/tutorial.md), [observed ozone example](docs/airquality.md) |
+| Choose a model | [Equations and assumptions](docs/methods.md), [structured models](docs/structured.md) |
+| Find a function | [API reference](docs/api.md) |
+| Check the evidence | [Verified results and open gaps](docs/reproduction.md), [development checks](docs/development.md) |
+| Read offline | [Reference manual](docs/manual.pdf) |
 
-- [Tutorial](docs/tutorial.md): data, fitting, prediction and plots.
-- [Structured models](docs/structured.md): kernels, approximations, residual structures and extended survival.
-- [API](docs/api.md): grouped functions, inputs and returned values.
-- [Model and interpretation](docs/methods.md): equations, priors and limits.
-- [Reference manual](docs/manual.pdf): printable documentation.
-- [Checks and development](docs/development.md): tests and installed-R comparisons.
-
-Dense covariance calculations limit practical sample size. The default kernel is Gaussian. Survival fitting uses a full event-time likelihood
-with a piecewise-constant baseline hazard. Structured survival inputs support
-delayed entry, competing causes, piecewise-constant predictor histories, and
-left or interval censoring under the stated observation assumptions. Group selection allows at most one selected exposure per
-group. Diagnostics cannot establish convergence or validate model assumptions.
+Dense calculations limit practical sample size. Finite GP bases are approximations,
+with their own uncertainty limits. Group selection permits at most one active
+exposure per group. Survival uses a piecewise-exponential likelihood.
+Priors differ between default and structured fits; consult the model guides.
+Diagnostics cannot prove convergence or validate assumptions.
 
 ## References and license
 
@@ -94,7 +92,5 @@ KernelMix is a separate Python implementation. Selected Gaussian/probit calculat
 against R [`bkmr`](https://cran.r-project.org/package=bkmr) 0.2.2.
 See [NOTICE](NOTICE) for attribution and [LICENSE](LICENSE) for GPL-2.0-only terms.
 
-
-Count and survival likelihoods use additional standard model ingredients,
-separately from R `bkmr`. Their definitions and checks are in the model guide.
-New-family default amplitude priors differ from the Gaussian/probit defaults.
+Count and survival models use additional standard likelihoods documented in the
+[model guide](docs/methods.md).
