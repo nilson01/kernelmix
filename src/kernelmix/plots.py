@@ -174,16 +174,16 @@ def plot_surface(surface, ax=None):
 
 def plot_survival(prediction, row=0, ax=None):
     """Plot a survival curve or evaluated hazards with pointwise credible intervals."""
-    if prediction.kind not in ('survival', 'hazard') or prediction.mean.ndim != 2:
+    if prediction.kind not in ('survival', 'hazard', 'cumulative_incidence') or prediction.mean.ndim != 2:
         raise ValueError('plot_survival requires a SurvivalPrediction')
     if isinstance(row, (bool, np.bool_)) or not isinstance(row, Integral) or not 0 <= row < prediction.mean.shape[0]:
         raise ValueError('row must index a prediction profile')
     ax = _axis(ax)
-    if prediction.kind == 'survival':
+    if prediction.kind in ('survival', 'cumulative_incidence'):
         ax.plot(prediction.times, prediction.mean[row], color=_COLORS[0], label='Posterior mean')
         ax.fill_between(prediction.times, prediction.lower[row], prediction.upper[row],
                         color=_COLORS[0], alpha=.16, label=_interval_label(prediction))
-        ax.set(xlabel='Time', ylabel=r'$S(t)$', ylim=(0, 1))
+        ax.set(xlabel='Time', ylabel=r'$S(t)$' if prediction.kind=='survival' else r'$F_k(t)$', ylim=(0, 1))
     else:
         # A sparse time grid need not include every baseline cut. Show only
         # evaluated hazards, rather than implying a false step location.

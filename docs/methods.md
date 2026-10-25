@@ -22,7 +22,7 @@ K(\mathbf z,\mathbf z';\mathbf r)=
 $$
 
 The relevance parameters $r_m\geq0$ determine how each exposure changes the
-kernel. An exposure with $r_m=0$ does not affect $h$. In the software,
+kernel. An exposure with $r_m=0$ does not affect $h$. In the default marginalized Gaussian sampler,
 `lambda` is $\lambda=\tau/\sigma^2$. Integrating out $\mathbf h$ gives
 covariance $\sigma^2(\mathbf I+\lambda\mathbf K_{Z,\mathbf r})$.
 
@@ -39,8 +39,7 @@ Here $\Phi$ is the standard normal cumulative distribution function. Residual
 variance on the latent normal scale is fixed at one. This extension follows
 [Bobb et al. (2018)](https://doi.org/10.1186/s12940-018-0413-y).
 Probability contrasts depend on both exposure profiles and adjustment covariates.
-They are not odds ratios. Separated linear adjustment designs are rejected:
-the flat coefficient prior can give an improper posterior in this case.
+They are not odds ratios. The default sampler rejects separated linear adjustment designs because its flat coefficient prior can give an improper posterior. Structured fits use a proper normal coefficient prior.
 
 ## Count outcomes
 
@@ -106,15 +105,16 @@ prior. Cutpoints are conditioned on after selection; their uncertainty is not
 modeled. Defaults use event-time deciles, so assess sensitivity to their number
 and placement. Baseline priors depend on the chosen time unit.
 
-No delayed entry, competing risks, time-varying covariates, left censoring or
-interval censoring is implemented. All-censored data are accepted with a warning:
+The basic interface below describes right censoring. The
+[structured survival interface](structured.md) also supports delayed entry,
+competing causes, predictor histories and left/interval censoring. All-censored data are accepted with a warning:
 the posterior then depends strongly on the priors. A fitted intercept and the
 baseline hazard share a scale. Separate estimates are anchored by their priors;
 `intercept=False` avoids adding that redundant coefficient.
 
 ## Random intercepts
 
-With observation-cluster index $c(i)$, independent Gaussian intercepts satisfy
+For the default random-intercept route, with observation-cluster index $c(i)$, independent Gaussian intercepts satisfy
 $u_g\sim N(0,\sigma_u^2)$. Exposures in `groups` and observations in `cluster`
 serve different purposes. Conditional on $h$, covariates and random intercepts,
 observations are independent under the selected outcome likelihood.
@@ -142,7 +142,7 @@ be weakly separated, particularly for constant kernels or singleton clusters.
 
 ## Priors and exposure selection
 
-`Prior()` and Gaussian/probit fitting defaults follow R `bkmr` 0.2.2. Gamma distributions below use shape and
+For the default fitting route, `Prior()` and Gaussian/probit defaults follow R `bkmr` 0.2.2. Gamma distributions below use shape and
 **rate**. The inverse-gamma density is proportional to
 $(\sigma^2)^{-a-1}\exp(-b/\sigma^2)$ for shape $a$ and parameter $b$.
 
@@ -201,11 +201,9 @@ caller's responsibility.
 Chains run sequentially with separate random streams. `draws` counts saved draws
 per chain after `warmup`; `thin` controls the spacing of saved states. Proposals
 are fixed during sampling. `sampling_info` records acceptance counts and runtime.
-The Gaussian model integrates out $h$ during parameter sampling. The binary
-model also samples correlated, sign-constrained latent outcomes. Predictions
-condition on the saved latent outcomes for binary fits.
+The default Gaussian sampler integrates out $h$ during parameter sampling. The default binary sampler also samples correlated, sign-constrained latent outcomes; its predictions condition on those saved latent outcomes.
 
-Count/survival fits sample a noncentered GP with
+Default count/survival fits sample a noncentered GP with
 [elliptical slice sampling](https://proceedings.mlr.press/v9/murray10a.html),
 log-scale Metropolis updates and conjugate baseline updates. Eigenvalues below
 $100n\epsilon\max(1,\lambda_{\max}(\mathbf K))$, where $\epsilon$ is machine
@@ -213,6 +211,8 @@ precision, define numerical null directions. No diagonal jitter is added.
 Prediction uses the same rank rule and the saved latent function. Saved auxiliary
 white coordinates may use different eigenvector signs on another platform;
 archive validation checks mathematical support rather than those signs.
+
+Structured fits instead sample the GP and other normal-prior coordinates jointly by elliptical slice sampling, with log-scale Metropolis updates for amplitudes, relevance, dispersion and survival baseline rates. Gaussian residual variance has a conditional inverse-gamma update. Their priors and covariance options are defined in the [structured guide](structured.md).
 
 Dense matrix factorization requires roughly cubic work in $n$ per parameter
 update. Working-memory checks reject oversized fitting or prediction requests;
@@ -251,7 +251,8 @@ necessary; favorable diagnostics do not prove convergence.
 
 KernelMix supports Gaussian, probit, Poisson, NB2 and right-censored
 piecewise-exponential survival models with independent Gaussian random intercepts.
-Low-rank speed approximations, random slopes and more general correlation
-structures remain unsupported. Numerical comparisons cover selected
+The [structured interface](structured.md) adds alternative kernels, finite GP
+bases, random slopes, Gaussian residual correlation and variance regression.
+It uses separately defined proper priors and a direct GP amplitude. Numerical comparisons cover selected
 fixed states and small analytic posterior targets. They do not establish general
 frequentist coverage or reproduce the original paper's studies.

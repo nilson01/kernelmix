@@ -3,12 +3,14 @@
 Bayesian kernel machine regression (BKMR) for exposure mixtures in Python.
 KernelMix estimates a flexible exposure–response function, with linear adjustment
 for covariates. It supports continuous, binary, count and right-censored survival outcomes,
-with Gaussian random intercepts for clustered observations. NumPy and SciPy handle fitting and prediction; R is not required.
+with random intercepts and slopes for clustered observations. NumPy and SciPy handle fitting and prediction; R is not required.
 
 | Analysis | Functions |
 | --- | --- |
 | Fit outcomes | `fit`, `Prior`: Gaussian, probit, Poisson, negative binomial and piecewise-exponential survival |
-| Cluster observations | `cluster`, `random_intercepts`, known/new-cluster prediction |
+| Cluster observations | Random intercepts/slopes; Gaussian AR1, exponential or supplied residual correlations |
+| Model unequal residual variance | Gaussian variance regression and residual-variance prediction |
+| Choose a GP representation | Gaussian, Matérn 3/2 or rational-quadratic kernels; dense, predictive-process or random-Fourier bases |
 | Select exposures or exposure groups | `selection="component"` or `"group"`, posterior inclusion probabilities |
 | Inspect results | `summary`, `diagnostics`, `posterior_samples` |
 | Predict | `predict_h`, `predict`, `predict_survival`, `posterior_moments_h` |
@@ -20,7 +22,7 @@ with Gaussian random intercepts for clustered observations. NumPy and SciPy hand
 With access to this repository:
 
 ```sh
-python -m pip install "kernelmix[plots] @ git+https://github.com/nilson01/kernelmix.git@work/count-survival-clusters"
+python -m pip install "kernelmix[plots] @ git+https://github.com/nilson01/kernelmix.git@main"
 ```
 
 Or, from a downloaded source folder:
@@ -68,14 +70,16 @@ all-median reference. It shows an association, not an identified causal effect.
 ## Documentation
 
 - [Tutorial](docs/tutorial.md): data, fitting, prediction and plots.
+- [Structured models](docs/structured.md): kernels, approximations, residual structures and extended survival.
 - [API](docs/api.md): grouped functions, inputs and returned values.
 - [Model and interpretation](docs/methods.md): equations, priors and limits.
 - [Reference manual](docs/manual.pdf): printable documentation.
 - [Checks and development](docs/development.md): tests and installed-R comparisons.
 
-Dense covariance calculations limit practical sample size. The Gaussian kernel
-is used for every family. Survival fitting uses a full event-time likelihood
-with a piecewise-constant baseline hazard and independent right censoring. Group selection allows at most one selected exposure per
+Dense covariance calculations limit practical sample size. The default kernel is Gaussian. Survival fitting uses a full event-time likelihood
+with a piecewise-constant baseline hazard. Structured survival inputs support
+delayed entry, competing causes, piecewise-constant predictor histories, and
+left or interval censoring under the stated observation assumptions. Group selection allows at most one selected exposure per
 group. Diagnostics cannot establish convergence or validate model assumptions.
 
 ## References and license

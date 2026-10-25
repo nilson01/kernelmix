@@ -745,6 +745,9 @@ class BKMRFit:
                 metadata.get("sampling_info"), dict):
             raise ValueError("fit archive settings or sampling information are missing")
         try:
+            if metadata["settings"].get("engine") == "structured":
+                from .structured_result import StructuredFit
+                return StructuredFit(data, samples, metadata["settings"], metadata["sampling_info"])
             return cls(data, samples, metadata["settings"], metadata["sampling_info"])
         except (KeyError, TypeError, AttributeError, IndexError) as exc:
             raise ValueError("invalid fit archive structure") from exc

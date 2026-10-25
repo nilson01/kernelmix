@@ -21,7 +21,7 @@ def main():
         raise SystemExit('pdflatex is required; install a LaTeX distribution.')
     root = Path(__file__).resolve().parents[1]
     sources = [root / 'README.md'] + [root / 'docs' / name for name in (
-        'methods.md', 'tutorial.md', 'api.md', 'development.md')]
+        'methods.md', 'tutorial.md', 'structured.md', 'api.md', 'development.md')]
     with tempfile.TemporaryDirectory(prefix='kernelmix-manual-') as folder:
         build = Path(folder)
         parts = []
