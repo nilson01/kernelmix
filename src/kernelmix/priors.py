@@ -1,7 +1,8 @@
-"""Validated scalar priors for the selected BKMR model.
+"""Scalar priors for Bayesian kernel machine regression (BKMR).
 
-Gaussian/probit defaults follow bkmr 0.2.2. Generalized fitting chooses
-separate amplitude defaults. Bounds for ``invunif`` apply to 1/r.
+The default Gaussian/probit sampler follows bkmr 0.2.2 prior conventions.
+Generalized and structured samplers use separate amplitude defaults.
+Bounds for ``invunif`` apply to 1/r.
 """
 import math
 from dataclasses import dataclass
@@ -11,7 +12,11 @@ import numpy as np
 
 @dataclass(frozen=True)
 class Prior:
-    """Prior configuration; gamma distributions use mean and standard deviation.
+    """Prior parameters for relevance, amplitudes and outcome models.
+
+    The ``*_mean`` and ``*_sd`` fields specify gamma means and standard
+    deviations. Other gamma priors use the named ``*_shape`` and ``*_rate``
+    fields.
 
     ``invunif`` means 1/r ~ Uniform(r_lower, r_upper); ``unif``
     means r ~ Uniform(r_lower, r_upper). Excluded exposures have r=0.

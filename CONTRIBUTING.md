@@ -13,5 +13,6 @@ python -m ruff check src tests tools
 
 Include a focused regression test for a corrected defect. Method changes also need
 an independent mathematical or numerical check and updated documentation. Describe
-preprocessing, priors and effect scales when comparing software. Do not commit
-research data, saved fitted objects, credentials or local build files.
+preprocessing, priors and effect scales when comparing software. Document the
+source and license of public example data. Keep confidential or restricted data,
+fitted archives, credentials and local build files out of the repository.

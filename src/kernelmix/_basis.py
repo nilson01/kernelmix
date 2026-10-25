@@ -1,7 +1,8 @@
-"""Dense and finite-feature GP representations with frozen basis randomness.
+"""Dense and finite-feature Gaussian process (GP) representations.
 
-Predictive-process (PP) and random-Fourier (RFF) paths form only row-by-feature
-and feature-by-feature arrays. PP omits the parent GP's residual variance;
+Predictive-process (PP) and random Fourier feature (RFF) paths use fixed basis
+randomness and form only row-by-feature and feature-by-feature arrays.
+PP omits the parent GP's residual variance;
 RFF and PP are model approximations, not exact dense-GP computations.
 """
 
@@ -43,7 +44,7 @@ def _relevance(r, columns):
 
 
 def kernel_matrix(Z1, Z2=None, r=None, *, kernel='gaussian', alpha=1):
-    """Unit-diagonal Gaussian, Matérn3/2 or rational-quadratic covariance.
+    """Unit-diagonal Gaussian, Matérn 3/2 or rational-quadratic covariance.
 
     Let q be the relevance-weighted squared distance. The kernels are exp(-q),
     (1+sqrt(6q))*exp(-sqrt(6q)), and (1+q/alpha)**(-alpha).

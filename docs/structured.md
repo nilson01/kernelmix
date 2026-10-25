@@ -1,8 +1,15 @@
-# Structured models and GP approximations
+# Structured models and Gaussian process approximations
 
-Use these options when the analysis needs a different exposure kernel, a finite GP basis, random slopes, Gaussian residual structure, or extended survival records. `km.fit` returns a `StructuredFit` when one of these options is selected. The ordinary defaults retain the original fitting route. The underlying exposure model follows [Bobb and colleagues](https://doi.org/10.1093/biostatistics/kxu058), with the [software extension](https://doi.org/10.1186/s12940-018-0413-y); the additional structures below have their own stated definitions.
+These options add kernels, finite Gaussian process (GP) bases, random slopes,
+Gaussian residual structures and extended survival inputs. Selecting one returns
+a `StructuredFit`, with the priors defined below. The exposure model follows
+[Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/kxu058) and the
+[2018 extension](https://doi.org/10.1186/s12940-018-0413-y); the additional
+structures have separate definitions.
 
-The examples below share eight fixed observations. Run the blocks in order. Four saved draws and four warmup iterations per chain show the workflow only; they cannot support inference. Longer runs, sampling diagnostics, prior sensitivity and checks of data support are needed for an analysis.
+Run these blocks in order. Their eight observations and four warmup/saved draws
+per chain illustrate the interface. For inference, use longer runs, sampling
+diagnostics, prior sensitivity and exposure-support checks.
 
 ```python
 import numpy as np
@@ -19,7 +26,8 @@ V = (x - x.mean())[:, None]
 demo = dict(draws=4, warmup=4, chains=2, seed=47)
 ```
 
-All exposure inputs and explicit knots use original exposure units. Training standardization is stored and reused. Adjustment and random-slope inputs exclude the automatically added intercept.
+Supply exposures and knots in original units. Prediction reuses training
+standardization. Adjustment and random-slope inputs exclude the added intercept.
 
 ## Choose an exposure kernel
 
@@ -35,7 +43,10 @@ The profiles use the fitted standardization when enabled. Setting $r_m=0$ remove
 | `"matern32"` | $(1+\sqrt{6q})\exp(-\sqrt{6q})$ |
 | `"rational_quadratic"` | $(1+q/\alpha)^{-\alpha}$ |
 
-For the rational-quadratic kernel, $\alpha$ (`kernel_alpha`) is fixed, positive and defaults to one. A nondefault value requires `kernel="rational_quadratic"`. Increasing it makes the rational-quadratic kernel approach the Gaussian kernel. These are the Matérn and rational-quadratic definitions in [GPML, Chapter 4](https://gaussianprocess.org/gpml/chapters/RW4.pdf), expressed using KernelMix's relevance weights.
+The fixed $\alpha>0$ (`kernel_alpha`) defaults to one; changing it requires
+`kernel="rational_quadratic"`. As $\alpha$ increases, this kernel approaches the
+Gaussian kernel. These definitions follow [GPML, Chapter 4](https://gaussianprocess.org/gpml/chapters/RW4.pdf)
+with KernelMix relevance weights.
 
 ```python
 matern = km.fit(y, Z, X, kernel="matern32", **demo)
@@ -43,9 +54,21 @@ rq = km.fit(y, Z, X, kernel="rational_quadratic", kernel_alpha=1.5, **demo)
 curve = km.univariate_response(matern, variable=0, points=5, seed=48)
 ```
 
-Structured fits store `lambda` as the **direct GP covariance amplitude**, corresponding to Bobb's $\tau$: $\mathbf h\sim N(\mathbf0,\tau\mathbf K)$. This also applies to structured Gaussian fits. The legacy Gaussian route instead stores the ratio $\tau/\sigma^2$. Selecting a structured model therefore changes its prior specification as well as its covariance options. Exposure contrasts describe conditional associations; causal interpretation requires additional assumptions.
+Structured fits store `lambda` as the **direct GP covariance amplitude**, corresponding to Bobb's $\tau$: $\mathbf h\sim N(\mathbf0,\tau\mathbf K)$. This also applies to structured Gaussian fits. The default Gaussian sampler instead stores the ratio $\tau/\sigma^2$. Selecting a structured model therefore changes its prior specification as well as its covariance options. Exposure contrasts describe conditional associations; causal interpretation requires additional assumptions.
 
-Structured adjustment coefficients, including an intercept when present, have independent normal priors with standard deviation `prior.beta_sd`, default five. Default GP amplitudes have Gamma shape four and rate four. Structured Gaussian residual variance defaults to inverse-gamma shape two and rate one, meaning its reciprocal has that Gamma distribution. A `prior` dictionary overrides only supplied fields on these structured defaults; a `Prior` object supplies all its fields directly. Inspect `fit.settings["prior"]` when comparing models. The legacy `cluster_lambda_mean` and `cluster_lambda_sd` fields do not govern structured random coefficients; their covariance prior is defined below.
+### Structured priors
+
+| Quantity | Default |
+| --- | --- |
+| Adjustment coefficients, including the intercept | Independent $N(0,25)$; SD set by `prior.beta_sd` |
+| Direct GP amplitude $\tau$ | Gamma(shape 4, rate 4) |
+| Gaussian residual variance $\sigma^2$ | Inverse-gamma(shape 2, rate 1) |
+| Random-coefficient covariance | Defined in the [random-effects section](#model-random-intercepts-and-slopes) |
+
+A `prior` dictionary overrides supplied fields; a `Prior` object supplies every
+field. Check `fit.settings["prior"]` when comparing models. The
+`cluster_lambda_mean` and `cluster_lambda_sd` fields apply to default random
+intercepts, not structured random coefficients.
 
 ## Reduce GP matrix size
 
@@ -59,7 +82,8 @@ rff = km.fit(y, Z, X, kernel="matern32", approximation="rff",
 pp_prediction = pp.predict(Z[:2], X[:2], seed=48)
 ```
 
-For PP, `n_components` is the maximum number of automatic, deterministic max-min knots. Alternatively, supply `knots=Z[[0, 3, 5, 7]]`. Its covariance is $\tau\mathbf K_{ZU}\mathbf K_{UU}^{+}\mathbf K_{UZ}$, where $U$ denotes the knots and $+$ is the numerical pseudoinverse. It omits the parent GP's conditional residual variance. Uncertainty can therefore be much smaller away from knots; this is the projected model described by [Banerjee and colleagues](https://academic.oup.com/jrsssb/article-pdf/70/4/825/49796141/jrsssb_70_4_825.pdf), not an exact dense-GP uncertainty calculation.
+For PP, `n_components` caps automatic max-min knots; explicit knots can instead
+be supplied as `knots=Z[[0, 3, 5, 7]]`. Its covariance is $\tau\mathbf K_{ZU}\mathbf K_{UU}^{+}\mathbf K_{UZ}$, where $U$ denotes the knots and $+$ is the numerical pseudoinverse. It omits the parent GP's conditional residual variance. Uncertainty can therefore be much smaller away from knots; this is the projected model described by [Banerjee and colleagues](https://academic.oup.com/jrsssb/article-pdf/70/4/825/49796141/jrsssb_70_4_825.pdf), not an exact dense-GP uncertainty calculation.
 
 For RFF, `n_components` counts frequency pairs, giving twice as many features. Paired sine/cosine features follow [Rahimi and Recht](https://papers.nips.cc/paper_files/paper/2007/file/013a006f03dbc5392effeb8f18fda755-Paper.pdf). Frequencies are Gaussian for the Gaussian kernel, multivariate Student-t with three degrees of freedom for Matérn, and a Gaussian/Gamma scale mixture for RQ. Each mixture scale is shared across all coordinates of one frequency vector. Base draws stay fixed throughout sampling and are saved with the fit. Inference is conditional on that realized feature map; a fixed feature count does not establish approximation accuracy.
 
@@ -82,7 +106,9 @@ fixed_slopes = km.fit(
 )
 ```
 
-`random_effects()` returns joint coefficient draws; `predict` combines them with the new slope design. A fixed covariance must be positive definite and match `[intercept, slopes]`. Otherwise, the full covariance is estimated. Each standard deviation is `random_scale * Phi(raw)`, where `raw` is standard normal and `Phi` is the standard normal cumulative distribution function. Thus SDs are uniform between zero and `random_scale`, default two. A normalized lower-triangular factor with normal off-diagonal coordinates supplies a proper correlation prior. It is neither an LKJ prior nor a uniform prior on correlation matrices.
+`random_effects()` returns joint coefficient draws; `predict` combines them with the new slope design. A fixed covariance must be positive definite and match `[intercept, slopes]`. Otherwise, the full covariance is estimated.
+
+Each standard deviation is `random_scale * Phi(raw)`, where `raw` is standard normal and `Phi` is the standard normal cumulative distribution function. Thus SDs are uniform between zero and `random_scale`, default two. A normalized lower-triangular factor with normal off-diagonal coordinates supplies a proper correlation prior. It is neither an LKJ prior nor a uniform prior on correlation matrices.
 
 Known labels use saved coefficients. Each distinct new label receives one fresh vector per draw, shared across its rows. Omitting `cluster_new` sets random effects to zero; on nonlinear links this differs from averaging over new clusters. Supply `random_slopes_new` when predicting their contribution at new rows. Redundant random-design columns are rejected, but few clusters or little slope variation can still leave covariance estimates strongly dependent on priors.
 
@@ -120,9 +146,16 @@ exponential = km.fit(
 )
 ```
 
-Residual correlation applies only to Gaussian outcomes and requires clusters. AR1 times are distinct integers within each cluster; exponential times are distinct finite values. AR1 correlation at a time gap is `rho**gap`, with `-1 < rho < 1`; exponential correlation is `exp(-gap/range)`, with positive range. See nlme's [AR1 definition](https://stat.ethz.ch/R-manual/R-devel/library/nlme/html/corAR1.html) and [exponential definition](https://stat.ethz.ch/R-manual/R-devel/library/nlme/html/corExp.html). A supplied `correlation_parameter` is fixed. Otherwise, AR1 uses `rho=tanh(raw)` and exponential uses `range=exp(raw)`, each with a standard-normal prior on `raw`.
+Residual correlation requires Gaussian outcomes and clusters. Within each cluster,
+AR1 times must be distinct integers and exponential times distinct finite values.
+AR1 uses `rho**gap`, with `-1 < rho < 1`; exponential uses `exp(-gap/range)`,
+with positive range. See nlme's [AR1 definition](https://stat.ethz.ch/R-manual/R-devel/library/nlme/html/corAR1.html) and [exponential definition](https://stat.ethz.ch/R-manual/R-devel/library/nlme/html/corExp.html). A supplied `correlation_parameter` is fixed. Otherwise, AR1 uses `rho=tanh(raw)` and exponential uses `range=exp(raw)`, each with a standard-normal prior on `raw`.
 
-For a known cluster, correlated prediction conditions on training residuals after subtracting its fitted structural predictor. Mean prediction includes the conditional residual mean; observation prediction also includes conditional residual uncertainty. An unseen cluster has no training residual cross-correlation. To condition predictions for training rows on the recorded process, supply their original `cluster_new` labels; training times and slope rows are reused. Omitting labels supplies no training residual cross-correlation. `predict_h` and exposure contrasts retain the exposure/structural target rather than this residual-process target.
+For known clusters, mean prediction includes the conditional training-residual
+mean; observation prediction also includes residual uncertainty. Supply original
+`cluster_new` labels to condition training-row predictions; their times and slope
+rows are reused. Unseen or omitted labels have no training residual
+cross-correlation. `predict_h` and exposure contrasts exclude residual conditioning.
 
 A fixed correlation matrix must cover all original rows, have unit diagonal, be positive definite, and be zero between clusters. Supply new-by-training and new-by-new correlations to condition new residuals:
 
@@ -166,13 +199,18 @@ hazard_two = survival.for_cause(2).predict_survival(
 cause_contrast = km.overall_effect(survival.for_cause(2), seed=53)
 ```
 
-For cause $k$, the hazard is $\lambda_k(t\mid\mathbf z_i,\mathbf x_i)=\lambda_{0k}(t)\exp\{h_k(\mathbf z_i)+\mathbf x_i^\mathsf T\boldsymbol\beta_k\}$, with random-coefficient terms added when supplied. The cause-specific exposure functions, adjustment coefficients, amplitudes and baselines are independent conditional on the shared exposure relevance and selection parameters; they need not be independent after those parameters are integrated out.
+For cause $k$, the hazard is $\lambda_k(t\mid\mathbf z_i,\mathbf x_i)=\lambda_{0k}(t)\exp\{h_k(\mathbf z_i)+\mathbf x_i^\mathsf T\boldsymbol\beta_k\}$, with random-coefficient terms added when supplied. Cause-specific functions and parameters have independent priors conditional on
+shared exposure relevance and selection. Posterior dependence can remain through
+shared parameters and interval-censored likelihoods.
 
 Survival is the probability of no event of any cause. A cumulative incidence function (CIF) is the probability of a particular cause occurring by a time, accounting for all competing causes. Joint draws satisfy survival plus the sum of CIFs equals one. This distinction is explained in the [R survival competing-risk guide](https://cran.r-project.org/web/packages/survival/vignettes/compete.pdf). `cif` retains all causes; `cif.for_cause(2)` selects one. A fit's `for_cause(2)` view instead selects its exposure function, relative-hazard predictions and contrasts. `km.plot_survival(cause_two)` plots a selected CIF with pointwise intervals when Matplotlib is installed.
 
 Prediction `entry` conditions on survival to that time; before it, survival is one and CIFs are zero. Static-profile prediction extends the final baseline hazard beyond follow-up. Baseline cuts are held fixed; their selection uncertainty is excluded. A survival intercept and baseline share a scale, so `intercept=False` is useful unless their separate prior-dependent roles are intended.
 
-These delayed-entry fits describe the **included entrant cohort**, conditional on its recorded entry and predictor design. GP/random-effect priors do not estimate an inception-population frailty distribution or correct its change under survival-to-entry selection. New-cluster predictions inherit this cohort-conditional model.
+Delayed-entry fits describe the **included entrant cohort**, conditional on
+recorded entry and predictors. They do not recover the distribution of unobserved
+risk before entry or correct how survival to entry changes that distribution.
+New-cluster predictions use the same cohort-conditional model.
 
 ## Record left or interval censoring
 
@@ -216,9 +254,13 @@ path_cause_two = path_fit.predict_survival_path(
 )
 ```
 
-Path prediction integrates only the supplied piecewise-constant predictors. Paths must cover requested times through each subject's last stop; the last row is never extended automatically. Use `kind="hazard"` for evaluated cause-specific hazards. Returned rows follow the first occurrence of `subject_new`. Repeated new cluster labels share their random vector across path intervals when supplied.
+Paths must cover requested times; the final row is never extended.
+`kind="hazard"` returns cause-specific hazards. Output follows first occurrence
+of `subject_new`. Repeated cluster labels share a random vector across intervals.
 
-Covariates must be known before the risk interval they describe. Measurements observed at an event or later inspection cannot be copied backward to create a past path. These functions neither interpolate missing trajectories nor forecast future covariates. Intervals are evaluated jointly across times and causes; the reported credible intervals are pointwise, not simultaneous bands.
+Predictors must be known before their risk interval. Do not copy event-time or
+later measurements backward. Paths are neither interpolated nor forecast. Draws
+are joint across times and causes; credible intervals are pointwise.
 
 ## Set starting values
 

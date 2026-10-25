@@ -74,8 +74,8 @@ def plot_trace(fit, parameter='lambda', indices=None, ax=None):
 def plot_pips(fit, ax=None):
     """Plot marginal exposure posterior inclusion probabilities on [0, 1].
 
-    Group selection also displays group PIP and within-group conditional PIP,
-    with distinct marker shapes. These are three different quantities, not
+    Group selection also displays group posterior inclusion probability (PIP)
+    and within-group conditional PIP, with distinct marker shapes. These are three different quantities, not
     uncertainty intervals. No-selection fits raise through the fit method.
     """
     rows = fit.inclusion_probabilities()

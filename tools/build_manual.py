@@ -45,6 +45,24 @@ def main():
             text = text.replace(
                 f'https://github.com/nilson01/kernelmix/blob/{options.revision}/docs/figures/airquality.png',
                 str(root / 'docs/figures/airquality.pdf'))
+            # Keep short tables and code blocks with their immediate headings.
+            def short_table(match):
+                heading, table = match.group(1) or '', match.group(2)
+                rows = len(table.rstrip().splitlines()) - 2
+                if rows <= 6:
+                    lines = 4 + 3 * rows + (3 if heading else 0)
+                    return (r"\Needspace{" + str(lines) + r"\baselineskip}"
+                            + "\n\n" + heading + table)
+                return heading + table
+            text = re.sub(r"(^\#{1,6} [^\n]+\n\n)?((?:^\|.*\|\n)+)",
+                          short_table, text, flags=re.MULTILINE)
+            def code_block(match):
+                heading, block = match.group(1) or '', match.group(2)
+                lines = len(block.splitlines()) + (3 if heading else 1)
+                return (r"\Needspace{" + str(lines) + r"\baselineskip}"
+                        + "\n\n" + heading + block)
+            text = re.sub(r"(^\#{1,6} [^\n]+\n\n)?(^```[^\n]*\n.*?^```)",
+                          code_block, text, flags=re.MULTILINE | re.DOTALL)
             parts.append(text)
         markdown = build / 'manual.md'
         markdown.write_text('\n\n'.join(parts), encoding='utf-8')
@@ -55,6 +73,7 @@ def main():
 \BeforeBeginEnvironment{Shaded}{\Needspace{8\baselineskip}}
 \AddToHook{cmd/section/before}{\Needspace{16\baselineskip}}
 \AddToHook{cmd/subsection/before}{\Needspace{12\baselineskip}}
+\AddToHook{cmd/subsubsection/before}{\Needspace{18\baselineskip}}
 \DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\},breaklines=true,breakanywhere=true,samepage=true,fontsize=\small}
 \AtBeginDocument{\hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue,citecolor=blue}}
 ''', encoding='utf-8')

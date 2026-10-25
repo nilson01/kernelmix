@@ -2,8 +2,10 @@
 
 ## Unreleased
 
+- Correct model-support and prior descriptions; simplify the guides and reference manual.
+
 - Add a reproducible public-data ozone example, saved results and residual plots.
-- Document original-paper asset gaps and the latest hosted-platform startup blocker.
+- Document original-study gaps and platform verification limits.
 
 ## 0.3.0
 

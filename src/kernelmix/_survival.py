@@ -1,6 +1,6 @@
 """Piecewise cause-specific survival likelihoods and conditional curves.
 
-Likelihoods condition on survival to entry GIVEN the supplied latent predictors.
+Likelihoods condition on survival to entry given the supplied latent predictors.
 The caller defines predictor/random-effect priors for the observed entrant
 cohort. These functions do not infer a population frailty distribution under
 marginal left truncation. Predictor histories are supplied piecewise constants;
@@ -76,14 +76,14 @@ def prepare_extended_survival(time, event, *, entry=None, upper=None, subject=No
                               n_causes=None, baseline_breaks=None):
     """Validate exact/right/left/interval observations and risk histories.
 
-    ``event`` is zero for right censoring,1..K for an observed cause, or-1
+    ``event`` is zero for right censoring, 1..K for an observed cause, or -1
     for an unknown cause in a finite interval. ``time`` is the exact/censoring
     time or interval lower bound. ``upper`` is the finite interval upper bound,
     equal to time for exact observations, or infinity for right censoring.
     Returned right-censored upper bounds are canonicalized to infinity.
 
-    Repeated subjects encode successive(start,stop] rows using entry/time.
-    Earlier rows are risk contributions with event0; only the last may have an
+    Repeated subjects encode successive (start, stop] rows using entry/time.
+    Earlier rows are risk contributions with event 0; only the last may have an
     event or finite censoring interval. Missing-row selection belongs to caller.
     """
     lower = _vector(time, 'time')
@@ -185,7 +185,7 @@ def _log_failure(log_hazard):
 def extended_survival_loglik(eta, baseline, data):
     """Full conditional log likelihood with cause-specific constant hazards.
 
-    Entry conditioning is rowwise GIVEN eta. Earlier subject rows accumulate
+    Entry conditioning is rowwise given eta. Earlier subject rows accumulate
     risk; a terminal interval row adds an integrated event probability. This
     gives one entry-conditioned subject likelihood when its contiguous rows
     are multiplied. Candidate nonfinite/invalid predictors or hazards return
@@ -275,8 +275,9 @@ def _finite_hazard(log_hazards):
 
 
 def survival_curves(eta, baseline, breaks, times, *, entry=0):
-    """Return(S,CIF,hazard) arrays conditional on survival to each entry time.
+    """Return (S, CIF, hazard) arrays conditional on survival to each entry time.
 
+    S is survival probability; CIF is cumulative incidence by cause.
     Shapes are profiles-by-times and profiles-by-times-by-causes. Before entry,
     S=1,CIF=0 and hazards=0. At time zero the first baseline hazard is used.
     Other boundaries are right closed. Beyond the last baseline cut, the final
@@ -312,9 +313,9 @@ def survival_curves(eta, baseline, breaks, times, *, entry=0):
 
 
 def survival_path_curves(eta, baseline, breaks, times, *, start, stop, subject):
-    """Conditional curves for supplied contiguous(start,stop] predictor paths.
+    """Conditional curves for supplied contiguous (start, stop] predictor paths.
 
-    Return(subject_levels,S,CIF,hazard). Subject order follows first occurrence;
+    Return (subject_levels, S, CIF, hazard). Subject order follows first occurrence;
     rows within subjects must already be chronological. Each supplied row has
     constant eta; no interpolation is used. Predictions after the last supplied
     stop fail instead of extending the last predictor row. Before first start,

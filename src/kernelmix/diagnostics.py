@@ -56,8 +56,9 @@ def _ess(values):
 def diagnose(values):
     """Diagnose one scalar parameter with shape (chains, saved draws).
 
-    R-hat uses rank-normalized and folded split chains. ESS uses the bulk
-    rank-normalized draws and 5%/95% indicator tails. These diagnostics do not
+    R-hat uses rank-normalized and folded split chains. Effective sample size
+    (ESS) uses bulk rank-normalized draws and 5%/95% indicator tails.
+    These diagnostics do not
     establish convergence or identify a poorly specified statistical model.
     """
     values = np.asarray(values, dtype=float)

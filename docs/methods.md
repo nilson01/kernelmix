@@ -63,8 +63,7 @@ $$
 `dispersion` stores $\phi$. Larger values approach Poisson variation.
 These likelihoods follow the standard
 [Poisson and NB2 parameterizations](https://mc-stan.org/docs/functions-reference/unbounded_discrete_distributions.html).
-They extend KernelMix beyond R `bkmr` 0.2.2; they are not described as R BKMR
-implementations or new statistical methods.
+R `bkmr` 0.2.2 does not implement these count likelihoods.
 
 ## Survival outcomes
 
@@ -105,7 +104,7 @@ prior. Cutpoints are conditioned on after selection; their uncertainty is not
 modeled. Defaults use event-time deciles, so assess sensitivity to their number
 and placement. Baseline priors depend on the chosen time unit.
 
-The basic interface below describes right censoring. The
+The likelihood above describes the default right-censored model. The
 [structured survival interface](structured.md) also supports delayed entry,
 competing causes, predictor histories and left/interval censoring. All-censored data are accepted with a warning:
 the posterior then depends strongly on the priors. A fitted intercept and the
@@ -119,7 +118,7 @@ $u_g\sim N(0,\sigma_u^2)$. Exposures in `groups` and observations in `cluster`
 serve different purposes. Conditional on $h$, covariates and random intercepts,
 observations are independent under the selected outcome likelihood.
 
-For Gaussian/probit fits, `lambda_cluster` is $\sigma_u^2/\sigma^2$, with probit
+For default Gaussian/probit fits, `lambda_cluster` is $\sigma_u^2/\sigma^2$, with probit
 $\sigma^2=1$. The marginalized covariance is
 
 $$
@@ -132,7 +131,7 @@ For count/survival fits there is no residual Gaussian variance parameter:
 `lambda` and `lambda_cluster` are the GP and random-intercept variances directly.
 The random-intercept model follows the Gaussian/probit extension described by
 [Bobb et al. (2018)](https://doi.org/10.1186/s12940-018-0413-y).
-Its use with the new likelihoods is an additional model composition.
+KernelMix also combines these intercepts with count and survival likelihoods.
 
 Known-cluster prediction conditions on the cluster posterior. Equal unseen labels
 share a new Gaussian draw. Omitted labels fix $u=0$; this is not marginalization
@@ -142,8 +141,7 @@ be weakly separated, particularly for constant kernels or singleton clusters.
 
 ## Priors and exposure selection
 
-For the default fitting route, `Prior()` and Gaussian/probit defaults follow R `bkmr` 0.2.2. Gamma distributions below use shape and
-**rate**. The inverse-gamma density is proportional to
+Default Gaussian/probit priors follow R `bkmr` 0.2.2. The [structured guide](structured.md) defines its separate priors. Gamma distributions below use shape and **rate**. The inverse-gamma density is proportional to
 $(\sigma^2)^{-a-1}\exp(-b/\sigma^2)$ for shape $a$ and parameter $b$.
 
 | Quantity | Default |
@@ -164,8 +162,8 @@ prior-predictive moments of the count mean and relative hazard. A supplied `Prio
 the selected family's defaults, for example `prior={"r_distribution": "gamma"}`.
 Warnings identify supplied amplitude or dispersion priors for which these moment
 guarantees do not hold. Assess prior sensitivity; large finite moments can still
-be numerically unstable. `sigma2` is only a stored unit-variance convention for
-new families and is omitted from their summaries.
+be numerically unstable. `sigma2=1` is a storage convention for count/survival fits and is omitted from
+their summaries.
 
 The inverse-uniform relevance prior has an unbounded upper tail. A finite-chain
 average of $r_m$ does not imply that its posterior expectation exists. Inspect
@@ -193,8 +191,10 @@ Do not include a constant adjustment column when adding an intercept.
 R `bkmr` does not automatically apply these Python preprocessing defaults.
 
 `missing="raise"` rejects missing data. `missing="drop"` removes rows jointly
-across the outcome, exposures, covariates, cluster labels, and applicable offsets or event indicators. Retained original row indices are
-stored in `result.data["rows"]`. Complete-case fitting does not correct bias
+across required inputs, including applicable cluster labels, offsets and survival
+inputs. For recorded subject histories, it removes the whole affected history;
+see [structured survival](structured.md#supply-known-covariate-paths). Retained
+original row indices are stored in `result.data["rows"]`. Complete-case fitting does not correct bias
 caused by missing data. Covariates must be numeric; categorical encoding is the
 caller's responsibility.
 
@@ -205,7 +205,7 @@ The default Gaussian sampler integrates out $h$ during parameter sampling. The d
 
 Default count/survival fits sample a noncentered GP with
 [elliptical slice sampling](https://proceedings.mlr.press/v9/murray10a.html),
-log-scale Metropolis updates and conjugate baseline updates. Eigenvalues below
+log-scale Metropolis updates and conjugate baseline updates. Eigenvalues at most
 $100n\epsilon\max(1,\lambda_{\max}(\mathbf K))$, where $\epsilon$ is machine
 precision, define numerical null directions. No diagonal jitter is added.
 Prediction uses the same rank rule and the saved latent function. Saved auxiliary
@@ -253,6 +253,7 @@ KernelMix supports Gaussian, probit, Poisson, NB2 and right-censored
 piecewise-exponential survival models with independent Gaussian random intercepts.
 The [structured interface](structured.md) adds alternative kernels, finite GP
 bases, random slopes, Gaussian residual correlation and variance regression.
-It uses separately defined proper priors and a direct GP amplitude. Numerical comparisons cover selected
-fixed states and small analytic posterior targets. They do not establish general
-frequentist coverage or reproduce the original paper's studies.
+It also supports delayed entry, competing causes, known covariate paths and
+left/interval censoring, with separate proper priors and a direct GP amplitude.
+See [verified results and open gaps](reproduction.md) for the limits of the
+numerical checks and original-study reproduction.

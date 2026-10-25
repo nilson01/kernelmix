@@ -30,7 +30,7 @@ that a platform passed.
 | Elliptical slice posterior | Check a conjugate normal target |
 | Poisson scalar posterior | Compare a constant GP posterior with one-dimensional integration |
 | NB2 dispersion / survival baseline | Check conditional scalar/Gamma targets with other latent blocks held fixed; these are not joint-posterior studies |
-| Legacy seeded behavior | Saved arrays agree bitwise with 0.1.0 in six Gaussian/probit selection cases |
+| Seeded compatibility with 0.1.0 | Saved arrays agree bitwise with 0.1.0 in six Gaussian/probit selection cases |
 | Diagnostic examples | Detect shifted chains, autocorrelation and constant traces |
 | Structured likelihoods | Independent kernel/spectral, Gaussian block-density, conditional residual and censoring/CIF/path identities |
 | Structured posterior targets | Constant-GP Gaussian, Poisson and delayed-entry survival targets against independent integration; amplitude held fixed for these checks |
@@ -56,11 +56,10 @@ Rscript tools/export_cluster_reference.R tests/fixtures/r_cluster_reference.json
 python -m pytest tests/test_reference.py tests/test_clusters.py
 ```
 
-The exporter verifies the installed version and records R/package versions.
-It calls installed `ComputePostmeanHnew` and `ExtractPIPs`, plus internal kernel
-and prior helpers. The fixtures contain **constructed states, not fitted R MCMC
-chains**. Preprocessing and intercept columns are supplied explicitly. Clustered fixtures
-use the installed public h-summary method and internal covariance helper. The R
+The exporters verify and record R/package versions. They call installed
+`ComputePostmeanHnew`, `ExtractPIPs`, and internal kernel/prior/covariance helpers.
+Fixtures contain **constructed states, not fitted R MCMC chains**, with explicit
+preprocessing and intercept columns. The R
 public summary API does not accept arbitrary new-cluster labels; Python h+u
 prediction is checked with an independent block-normal calculation. Count and
 survival inference has no corresponding R `bkmr` family; its evidence is separate.
@@ -73,7 +72,9 @@ and random-number streams differ; equal seeds do not produce matching chains.
 
 ## Observed data and original studies
 
-The [ozone analysis](airquality.md) includes source data, a command-line runner, saved tables and residual checks. [Reference studies](reproduction.md) distinguishes these outputs from installed-R agreement and the unresolved original-paper reproduction. Hosted platform checks remain blocked before runner startup; their exact attempt is recorded there.
+The [ozone example](airquality.md) supplies data, scripts, tables and residual
+checks. [Reference studies](reproduction.md) records its limits, original-study
+gaps and unresolved platform checks.
 
 ## Build the manual
 
@@ -85,8 +86,6 @@ python -m pip install ".[docs]"
 python tools/build_manual.py
 ```
 
-Pandoc and LaTeX build the PDF from Markdown. Intermediate TeX stays in a temporary
-directory. The small README example generates the response figure; its plotted
-values are also available in `docs/figures/response.csv`. The figure shows
-pointwise credible limits from short illustrative chains, not a performance
-benchmark.
+Pandoc and LaTeX build the PDF; intermediate TeX is temporary. The README figure
+uses short illustrative chains, with values in `docs/figures/response.csv`.
+Its pointwise intervals are not evidence of statistical calibration.

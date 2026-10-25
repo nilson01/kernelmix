@@ -1,6 +1,8 @@
 # Ozone and weather in New York
 
-This example models observed ozone using solar radiation, wind and temperature. It shows a complete analysis with recorded data, saved results and sampling checks. It is separate from the applications in Bobb et al. (2015).
+This exploratory example models observed ozone using solar radiation, wind and
+temperature. It includes source data, saved results and sampling checks. It is
+separate from the applications in Bobb et al. (2015).
 
 ## Data and question
 
@@ -24,7 +26,9 @@ There are 37 missing ozone values and seven missing solar-radiation values. Join
 | August | 31 | 23 |
 | September | 30 | 29 |
 
-Missingness is uneven across months. Among days with observed ozone, its median is 31 ppb in the complete rows and 35 ppb in the five rows missing solar radiation. This small comparison cannot establish that missingness is ignorable; ozone is unavailable on the other 37 days.
+Ozone medians are 31 ppb in complete rows and 35 ppb in the five rows missing
+solar radiation. Missingness is uneven across months, and ozone is unknown on
+37 days. This comparison cannot establish ignorable missingness.
 
 ## Model and run
 
@@ -55,7 +59,10 @@ Four chains run sequentially with seed 73. Each has 5,000 warmup iterations and 
 | Correlation of consecutive-day fitted residuals | 0.0136 |
 | Fitting time on the recorded local environment | 72.6 seconds |
 
-The sampling checks cover ten scalar model parameters. They do not prove convergence of every derived curve. Curves and fitted residual summaries use 400 evenly spaced states per chain; the full parameter diagnostics use all saved states. The small residual correlation does not establish independent errors. Fitted-versus-observed values use the training data and are not a held-out accuracy estimate.
+Diagnostics cover ten scalar parameters using all saved states; they do not
+prove convergence of every curve. Curves and fitted residuals use 400 evenly
+spaced states per chain. The residual correlation cannot establish independence.
+Fitted-versus-observed values use training data, not held-out observations.
 
 ![Ozone example: (a–c) posterior means and 95% pointwise credible intervals for $h(\mathbf z)-h(\mathbf z_{0.5})$, with other exposures fixed at their sample medians and $\mathbf z_{0.5}$ the all-median profile; (d) fitted and observed log ozone; (e) residuals by date, with missing dates unconnected; (f) residual pairs one calendar day apart. Intervals assume independent Gaussian working errors.](figures/airquality.png)
 
@@ -65,4 +72,7 @@ The displayed slices increase with solar radiation and temperature and decrease 
 
 The [results record](results/airquality/results.json), [parameter summaries](results/airquality/parameters.csv), [diagnostics](results/airquality/diagnostics.csv), [curve values](results/airquality/curves.csv) and [dated observations/residuals](results/airquality/observations.csv) accompany the runnable scripts. R is not required to run the analysis. Maintainers can regenerate the source CSV with `Rscript tools/export_airquality.R destination.csv`; the recorded export uses R 4.5.0.
 
-Complete-case filtering, measurement differences, prior choice and serial dependence limit interpretation. This example does not estimate a causal effect, establish time-series interval coverage, reproduce the original paper's studies or demonstrate external adoption. A substantive environmental analysis needs a design and sensitivity checks suited to those claims.
+Missingness, measurement differences, priors and serial dependence limit
+interpretation. This example establishes neither causal effects nor time-series
+interval coverage. Original-study reproduction and external research use remain
+separate evidence gaps; see [reference studies](reproduction.md).
