@@ -41,6 +41,10 @@ def sections(text):
 
 
 def on_files(files, config):
+    # Build helpers and their bytecode are not documentation downloads.
+    for file in list(files):
+        if file.src_uri == "hooks.py" or "__pycache__" in file.src_uri.split("/"):
+            files.remove(file)
     # The API's grouped views share the maintained api.md, rather than duplicating it.
     api = (DOCS / "api.md").read_text(encoding="utf-8")
     parts = sections(api)
