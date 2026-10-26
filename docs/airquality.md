@@ -28,7 +28,7 @@ Ozone medians are 31 ppb in complete rows and 35 ppb in the five rows missing
 solar radiation. Missingness is uneven across months, and ozone is unknown on
 37 days. These observed ozone values do not show whether excluding incomplete days leaves the analysis unbiased.
 
-![Availability of all 153 daily records. (a) Recorded measurements and missing values, marked by crosses. (b) Recorded and complete days by month; 111 days have all four variables.](figures/ozone-availability.png)
+![Measurement availability among all 153 daily records. (a) Filled cells mark recorded measurements; crosses mark missing values. Fractions give recorded counts out of 153 days. (b) Filled bars show complete days within outlines for all recorded days, with complete/recorded counts. All four measurements are available on 111 days.](figures/ozone-availability.png)
 
 ![Observed ozone against solar radiation, wind and temperature for the 111 complete days. Each point is one day, without smoothing or adjustment for month.](figures/ozone-observed.png)
 
