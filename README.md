@@ -15,19 +15,19 @@ To handle different outcome types, the package combines this exposure function w
 
 ## Install
 
-Install directly from GitHub:
-
 ```sh
-python -m pip install "kernelmix[plots] @ git+https://github.com/nilson01/kernelmix.git@main"
+python -m pip install kernelmix
 ```
 
-Or, from a downloaded source folder:
+For plots, use `python -m pip install "kernelmix[plots]"`.
+
+Or install the released source directly from GitHub:
 
 ```sh
-python -m pip install ".[plots]"
+python -m pip install "kernelmix[plots] @ git+https://github.com/nilson01/kernelmix.git@v0.3.0"
 ```
 
-Python 3.10 or later is required. Omit `[plots]` if plots are not needed.
+Python 3.10 or later is required.
 
 ## Example
 

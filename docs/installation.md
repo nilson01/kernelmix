@@ -1,19 +1,23 @@
 # Installation
 
-Python 3.10 or later is required. KernelMix uses NumPy and SciPy; R is not required for fitting or prediction. Matplotlib is an optional plotting dependency.
+Python 3.10 or later is required. KernelMix uses NumPy and SciPy; R is not required for fitting or prediction.
 
-Install directly from GitHub:
-
-```sh
-python -m pip install "kernelmix[plots] @ git+https://github.com/nilson01/kernelmix.git@main"
-```
-
-Or, from a downloaded source folder:
+## From PyPI
 
 ```sh
-python -m pip install ".[plots]"
+python -m pip install kernelmix
 ```
 
-Omit `[plots]` if plots are not needed.
+For plots, install Matplotlib through the plotting extra:
 
-Start with the [analysis tutorial](tutorial.md). It explains the required arrays, fitting, diagnostics, prediction and exposure summaries. The [ozone example](airquality.md) includes observed data and saved results.
+```sh
+python -m pip install "kernelmix[plots]"
+```
+
+## From GitHub
+
+```sh
+python -m pip install "kernelmix[plots] @ git+https://github.com/nilson01/kernelmix.git@v0.3.0"
+```
+
+Start with the [analysis tutorial](tutorial.md) for fitting, diagnostics, prediction and exposure summaries. The [ozone example](airquality.md) includes observed data and saved results.
