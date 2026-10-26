@@ -1,8 +1,9 @@
 {
-  "description": "Availability of ozone and three meteorological variables for all 153 days from May through September 1973. Crosses mark missing values. Monthly bars compare recorded days with the 111 days having all four variables recorded; no values are imputed.",
-  "alt_text": "Daily availability grid with missing values marked by crosses, followed by monthly counts. Complete-day counts are 24, 9, 26, 23, and 29 for May through September.",
+  "description": "Daily measurement availability and monthly complete-case counts for all 153 days from May through September 1973. Crosses mark missing measurements; blue bar lengths show complete days within outlines for all recorded days. Fractions give exact counts. No values are imputed.",
+  "alt_text": "Four calendar-ordered availability rows show 37 missing ozone measurements, seven missing solar-radiation measurements, and no missing wind or temperature. Recorded counts are 116, 146, 153 and 153 of 153 days. Monthly complete/recorded counts are 24/31, 9/30, 26/31, 23/31 and 29/30; 111 days are complete in total.",
   "transformations": [
     "Classify the four analysis fields as recorded or NA for each original calendar day.",
+    "Preserve all 153 calendar positions and all 44 missing cells, including two days missing both ozone and solar radiation.",
     "Count complete and recorded days by month; no imputation or smoothing."
   ],
   "inputs": {
@@ -10,15 +11,15 @@
     "docs/data/airquality-provenance.json": "75f2c4bf88ca44e94c9d40f9eaf6fc35ee58326a6c36b1f2dcb0efb55908c8e6",
     "docs/results/airquality/results.json": "a34364904910ba847f6da87fb18571499d2d2d6e24ae8135acbe5557927bb88b"
   },
-  "script_sha256": "260aef84da4987bf6be77b5b8cdd2036a789d38b6b33de0f7115e80cd72e0777",
+  "script_sha256": "12b2a9d310360ebd3c33212ed43afb15d597cea092a31c2d72c81196986a8ab7",
   "size_inches": [
     7.2,
-    4.3
+    3.7
   ],
   "png_dpi": 450,
   "png_pixels": [
     3240,
-    1935
+    1665
   ],
   "background": "opaque white",
   "pdf_fonttype": 42,
@@ -81,17 +82,33 @@
     "docs/figures/response.png": "711d7816c384b399264d84107588bf6a23afc6d159c2c45f452b8704b15cb1cd"
   },
   "outputs_sha256": {
-    "pdf": "4aff3d92404057b11ed01f0ea717bc044b9f82faf317a4b8f0e67cc37ae7a243",
-    "png": "3d2ec2d0a0c9863bdeeae9546df059baa9c66168d836174136f424015543ba96",
+    "pdf": "f4d126fcd9880cf7df0b8b6bf0f2e9c37a858a3395ee8d0639fc9b2ee7725d17",
+    "png": "fb1d9c72a44e585b2441372cdb6af8858e97abcffe85739fe952c09307577a06",
     "csv": "6058cf19a29085592d73eb9c0f088390eb57e3951e99603ef745adfca87b5fd2"
   },
   "export_style": {
     "width_mm": 182.88,
+    "height_mm": 93.98,
     "font_family": "Arial",
     "font_size_pt": 8.2,
-    "panel_font_size_pt": 8.5,
+    "panel_font_size_pt": 9,
     "axes_width_pt": 0.5,
     "background_grids": false,
     "bar_hatching": false
-  }
+  },
+  "encoding": {
+    "recorded_cell": "#82949F",
+    "missing_cross": "#A54532",
+    "complete_bar": "#176B86",
+    "recorded_bar": "white outlined",
+    "calendar_order": true,
+    "month_separators": "white"
+  },
+  "recorded_per_variable": [
+    116,
+    146,
+    153,
+    153
+  ],
+  "missing_cells": 44
 }

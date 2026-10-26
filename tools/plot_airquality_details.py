@@ -29,7 +29,6 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.colors import ListedColormap
 from matplotlib.patches import Patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -65,6 +64,9 @@ def clean_axes(axes):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output-dir', type=Path, default=ROOT / 'docs/figures')
+    parser.add_argument('--only', choices=['ozone-availability', 'ozone-observed',
+                        'ozone-parameters', 'ozone-diagnostics', 'ozone-support'],
+                        help='Export only the selected figure.')
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     results = ROOT / 'docs/results/airquality'
@@ -109,6 +111,9 @@ def main():
     exported = []
 
     def export(fig, stem, caption, alt, transform, inputs, data_rows=None, extra=None):
+        if args.only is not None and stem != args.only:
+            plt.close(fig)
+            return
         dest = args.output_dir / stem
         if data_rows is not None:
             write_csv(dest.with_suffix('.csv'), data_rows)
@@ -163,43 +168,90 @@ def main():
                          'xtick.labelsize': 8, 'ytick.labelsize': 8,
                          'xtick.direction': 'out', 'ytick.direction': 'out',
                          'legend.fontsize': 8, 'pdf.fonttype': 42, 'ps.fonttype': 42}):
-        fig, (ax, bars) = plt.subplots(2, 1, figsize=(7.2, 4.3), layout='constrained',
-                                      gridspec_kw={'height_ratios': [1, 1.3]})
-        available = np.isfinite(values).T.astype(int)
-        ax.pcolormesh(np.arange(154) - .5, np.arange(5) - .5, available,
-                      cmap=ListedColormap(['white', PALETTE[0]]), vmin=0, vmax=1,
-                      shading='flat', rasterized=False, edgecolors='face', linewidth=.05)
-        ax.set_ylim(3.5, -.5)
-        yy, xx = np.where(available == 0)
-        ax.scatter(xx, yy, marker='x', s=4, color='.15', lw=.55)
-        starts = [next(i for i, r in enumerate(rows) if int(r['Month']) == month) for month in range(5, 10)]
-        ax.set(yticks=range(4), yticklabels=['Ozone', 'Solar radiation', 'Wind', 'Temperature'],
-               xticks=starts, xticklabels=[f'{m} 1' for m in MONTHS], xlabel='Calendar day in 1973',
-               title='Daily availability')
+        # Keep calendar order and exact daily missingness; separate the four rows.
+        fig = plt.figure(figsize=(7.2, 3.7), facecolor='white')
+        ax = fig.add_axes([.16, .625, .70, .225])
+        bars = fig.add_axes([.16, .135, .70, .31])
+        ink, recorded, absent, complete = '#222222', '#82949F', '#A54532', '#176B86'
+        available = np.isfinite(values).T
+        assert int((~available).sum()) == 44
+        assert np.array_equal(available.all(axis=0), keep)
+        for j in range(4):
+            for i in range(153):
+                present = bool(available[j, i])
+                ax.add_patch(plt.Rectangle((i - .43, j - .29), .86, .58,
+                                          facecolor=recorded if present else 'white',
+                                          edgecolor='none'))
+            absent_days = np.flatnonzero(~available[j])
+            ax.scatter(absent_days, np.full(len(absent_days), j), marker='x',
+                       s=6, color=absent, linewidths=.65, zorder=3)
+            ax.text(1.12, j, f'{int(available[j].sum())}/153',
+                    transform=ax.get_yaxis_transform(), va='center', ha='right',
+                    fontsize=8, color=ink)
+        starts = [next(i for i, r in enumerate(rows) if int(r['Month']) == month)
+                  for month in range(5, 10)]
+        ends = starts[1:] + [153]
+        centers = [(start + end - 1) / 2 for start, end in zip(starts, ends)]
         for start in starts[1:]:
-            ax.axvline(start - .5, color='.7', lw=.65)
-        ax.legend(handles=[Patch(facecolor=PALETTE[0], label='Recorded'),
-                           plt.Line2D([], [], color='.15', marker='x', ls='', label='Missing')],
-                  loc='upper right', bbox_to_anchor=(1, 1.37), ncols=2, frameon=False, fontsize=8)
-        x = np.arange(5)
-        bars.bar(x - .19, [r['recorded'] for r in counts], .36, facecolor='white',
-                 edgecolor='.3', linewidth=.6, label='Recorded days')
-        bars.bar(x + .19, [r['complete'] for r in counts], .36, color=PALETTE[0], label='Complete days')
+            ax.axvline(start - .5, ymin=.04, ymax=.96, color='white', lw=2)
+        ax.set(xlim=(-.8, 152.8), ylim=(3.65, -.65), yticks=range(4),
+               yticklabels=['Ozone', 'Solar radiation', 'Wind', 'Temperature'],
+               xticks=centers, xticklabels=MONTHS)
+        ax.spines[:].set_visible(False)
+        ax.tick_params(axis='both', length=0, pad=5)
+        fig.text(.105, .91, 'a', fontsize=9, weight='bold', color=ink)
+        fig.text(.16, .91, 'Daily availability', fontsize=8.5, color=ink)
+        fig.text(.94, .865, 'Recorded', ha='right', fontsize=7.5, color=ink)
+        ax.legend(handles=[Patch(facecolor=recorded, label='Recorded'),
+                           plt.Line2D([], [], color=absent, marker='x', ls='',
+                                      markersize=4, label='Missing')],
+                  loc='lower right', bbox_to_anchor=(1, 1.11), borderaxespad=0,
+                  ncols=2, frameon=False, handlelength=1.1, columnspacing=1.5,
+                  handletextpad=.5, fontsize=7.5)
+
+        # Bar outlines show all recorded days; blue fill shows complete rows.
+        y = np.arange(5)
+        total = np.array([r['recorded'] for r in counts])
+        n_complete = np.array([r['complete'] for r in counts])
+        bars.barh(y, total, height=.52, facecolor='white', edgecolor='#737D82',
+                  linewidth=.7, zorder=1)
+        bars.barh(y, n_complete, height=.52, facecolor=complete,
+                  edgecolor=complete, linewidth=.7, zorder=2)
         for j, row in enumerate(counts):
-            for offset, key in [(-.19, 'recorded'), (.19, 'complete')]:
-                bars.text(j + offset, row[key] + .6, str(row[key]), ha='center', fontsize=8)
-        bars.set(xticks=x, xticklabels=MONTHS, ylim=(0, 38), ylabel='Number of days',
-                 title='Monthly completeness')
-        bars.legend(loc='upper center', ncols=2, frameon=False, fontsize=8)
-        clean_axes([bars])
-        panel(ax, 'a')
-        panel(bars, 'b')
+            bars.text(1.12, j, f"{row['complete']}/{row['recorded']}",
+                      transform=bars.get_yaxis_transform(), ha='right',
+                      va='center', fontsize=8, color=ink)
+        bars.set(yticks=y, yticklabels=MONTHS, ylim=(4.7, -.7),
+                 xlim=(0, 33), xticks=[0, 10, 20, 30], xlabel='Days')
+        bars.spines[['top', 'right', 'left']].set_visible(False)
+        bars.spines['bottom'].set_color('#737D82')
+        bars.tick_params(axis='y', length=0, pad=5)
+        bars.tick_params(axis='x', colors=ink, length=3)
+        bars.set_axisbelow(True)
+        fig.text(.105, .51, 'b', fontsize=9, weight='bold', color=ink)
+        fig.text(.16, .51, 'Complete days by month', fontsize=8.5, color=ink)
+        fig.text(.94, .465, 'Complete / recorded', ha='right', fontsize=7.5, color=ink)
+        bars.legend(handles=[Patch(facecolor=complete, edgecolor=complete, label='Complete'),
+                             Patch(facecolor='white', edgecolor='#737D82', label='Recorded')],
+                    loc='lower right', bbox_to_anchor=(1, 1.14), borderaxespad=0,
+                    ncols=2, frameon=False, handlelength=1.1, columnspacing=1.5,
+                    handletextpad=.5, fontsize=7.5)
         export(fig, 'ozone-availability',
-               'Availability of ozone and three meteorological variables for all 153 days from May through September 1973. Crosses mark missing values. Monthly bars compare recorded days with the 111 days having all four variables recorded; no values are imputed.',
-               'Daily availability grid with missing values marked by crosses, followed by monthly counts. Complete-day counts are 24, 9, 26, 23, and 29 for May through September.',
+               'Daily measurement availability and monthly complete-case counts for all 153 days from May through September 1973. Crosses mark missing measurements; blue bar lengths show complete days within outlines for all recorded days. Fractions give exact counts. No values are imputed.',
+               'Four calendar-ordered availability rows show 37 missing ozone measurements, seven missing solar-radiation measurements, and no missing wind or temperature. Recorded counts are 116, 146, 153 and 153 of 153 days. Monthly complete/recorded counts are 24/31, 9/30, 26/31, 23/31 and 29/30; 111 days are complete in total.',
                ['Classify the four analysis fields as recorded or NA for each original calendar day.',
+                'Preserve all 153 calendar positions and all 44 missing cells, including two days missing both ozone and solar radiation.',
                 'Count complete and recorded days by month; no imputation or smoothing.'],
-               ['docs/data/airquality.csv', 'docs/data/airquality-provenance.json', 'docs/results/airquality/results.json'], counts)
+               ['docs/data/airquality.csv', 'docs/data/airquality-provenance.json', 'docs/results/airquality/results.json'], counts,
+               extra={'export_style': {'width_mm': 182.88, 'height_mm': 93.98,
+                                       'font_family': 'Arial', 'font_size_pt': 8.2,
+                                       'panel_font_size_pt': 9, 'axes_width_pt': .5,
+                                       'background_grids': False, 'bar_hatching': False},
+                      'encoding': {'recorded_cell': recorded, 'missing_cross': absent,
+                                   'complete_bar': complete, 'recorded_bar': 'white outlined',
+                                   'calendar_order': True, 'month_separators': 'white'},
+                      'recorded_per_variable': available.sum(axis=1).tolist(),
+                      'missing_cells': int((~available).sum())})
 
         fig, axes = plt.subplots(1, 3, figsize=(7.2, 2.55), sharey=True, layout='constrained')
         for j, ax in enumerate(axes):
