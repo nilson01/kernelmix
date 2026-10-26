@@ -1,6 +1,6 @@
 """Plot additional ozone views from saved public tables, without fitting a model.
 
-Run from any directory with Python, NumPy, and Matplotlib installed::
+From a source checkout with Python, NumPy, and Matplotlib installed::
 
     python tools/plot_airquality_details.py
 
@@ -140,18 +140,10 @@ def main():
                     'original_figures_sha256': original_hashes,
                     'outputs_sha256': {ext: sha(dest.with_suffix('.' + ext)) for ext in
                                        (['pdf', 'png', 'csv'] if data_rows is not None else ['pdf', 'png'])},
-                    'scope': 'Presentation of saved tables only; no model fitting or posterior recomputation.',
-                    'publisher_requirements': 'Nature-inspired presentation only. Live research-figure guidance was inspected on 2026-10-25; final-submission compliance remains unverified.',
-                    'export_style': {'name': 'Nature-inspired compact full-width', 'width_mm': 182.88,
-                                     'font_size_pt': 8.2, 'axes_width_pt': .5,
-                                     'source_preset': 'scientific-visualization/assets/nature.mplstyle',
-                                     'source_preset_sha256': 'f37a361cdda8846da0794fd879cc8173402094f110239d57e0227fdd8299a4f6',
-                                     'preset_snapshot': '2026-10-01; visual guidance, not compliance certification',
-                                     'live_guide_url': 'https://research-figure-guide.nature.com/figures/preparing-figures-our-specifications/',
-                                     'guide_inspected': '2026-10-25',
-                                     'live_guide_snapshot_sha256': 'c5695036b282db8bda05eb11cbe113d85c0d4d3a9c355cda2aab7e1e7e33e6d8',
-                                     'adaptations': '8.2 pt body and 8.5 pt panels for documentation readability; Nature body guidance is 5–7 pt and panels 8 pt',
-                                     'background_grids': False, 'bar_hatching': False}}
+                    'export_style': {'width_mm': 182.88, 'font_family': 'Arial',
+                                     'font_size_pt': 8.2, 'panel_font_size_pt': 8.5,
+                                     'axes_width_pt': .5, 'background_grids': False,
+                                     'bar_hatching': False}}
         if extra:
             manifest.update(extra)
         dest.with_suffix('.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')

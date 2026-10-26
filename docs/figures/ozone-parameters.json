@@ -8,7 +8,7 @@
   "inputs": {
     "docs/results/airquality/parameters.csv": "9ba96fa06be3410b94ae7ea68641536fdb341978ad37dac3d6b2554811f13f4c"
   },
-  "script_sha256": "2d4fcb5be8ec1527a3708fabfe38bdff520ccd86e5b3bc0b5e5445abe8432b9c",
+  "script_sha256": "260aef84da4987bf6be77b5b8cdd2036a789d38b6b33de0f7115e80cd72e0777",
   "size_inches": [
     7.2,
     2.7
@@ -79,23 +79,15 @@
     "docs/figures/response.png": "711d7816c384b399264d84107588bf6a23afc6d159c2c45f452b8704b15cb1cd"
   },
   "outputs_sha256": {
-    "pdf": "f0a593b1dc1209a2111ce1d5bed03353d4c9a97d90e42ae7de7cf78fc3fbca99",
+    "pdf": "3f27ae44b13cd1876955a53156a3a86d48acd6a15b0c78853804df9071d3b0aa",
     "png": "46dfce6b4f0a79d1e21375537a8cbf53a88bf3448ca5262f7056d526e6d019d9"
   },
-  "scope": "Presentation of saved tables only; no model fitting or posterior recomputation.",
-  "publisher_requirements": "Nature-inspired presentation only. Live research-figure guidance was inspected on 2026-10-25; final-submission compliance remains unverified.",
   "export_style": {
-    "name": "Nature-inspired compact full-width",
     "width_mm": 182.88,
+    "font_family": "Arial",
     "font_size_pt": 8.2,
+    "panel_font_size_pt": 8.5,
     "axes_width_pt": 0.5,
-    "source_preset": "scientific-visualization/assets/nature.mplstyle",
-    "source_preset_sha256": "f37a361cdda8846da0794fd879cc8173402094f110239d57e0227fdd8299a4f6",
-    "preset_snapshot": "2026-10-01; visual guidance, not compliance certification",
-    "live_guide_url": "https://research-figure-guide.nature.com/figures/preparing-figures-our-specifications/",
-    "guide_inspected": "2026-10-25",
-    "live_guide_snapshot_sha256": "c5695036b282db8bda05eb11cbe113d85c0d4d3a9c355cda2aab7e1e7e33e6d8",
-    "adaptations": "8.2 pt body and 8.5 pt panels for documentation readability; Nature body guidance is 5\u20137 pt and panels 8 pt",
     "background_grids": false,
     "bar_hatching": false
   },

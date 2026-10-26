@@ -38,8 +38,8 @@ cannot replace the original studies.
 | --- | --- |
 | Local Python 3.14, current dependencies | 484 tests passed from an installed wheel |
 | Local Python 3.11, minimum dependencies | 484 tests passed from an installed wheel |
-| Hosted Linux/Python 3.10 and 3.14; Windows/Python 3.13 | Blocked before runner startup by account billing/spending limits |
+| Hosted Linux/Python 3.10 and 3.14; Windows/Python 3.13 | Not yet verified |
 
-The [main-branch check](https://github.com/nilson01/kernelmix/actions/runs/40243787433)
-records the startup blocker. No hosted platform passed. Python 3.10 and Windows
-runtime compatibility remain unverified; configuration is not test evidence.
+Hosted jobs have not executed. Python 3.10 and Windows runtime compatibility
+remain unverified. Check the [Actions results](https://github.com/nilson01/kernelmix/actions)
+for platform results; configuration alone does not establish compatibility.
