@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add reproducible fitted-posterior comparisons with R and independent extension checks.
+- Add searchable documentation with grouped API pages and common questions.
+
 - Clarify model support, priors and notation; connect the guides and reference manual around analysis tasks.
 - Add a reproducible public-data ozone example, saved results and residual plots.
 - Document original-study gaps and platform verification limits.

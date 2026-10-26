@@ -14,7 +14,7 @@ authors = [{name = "Nilson Chapagain"}]
 dependencies = ["numpy>=1.24", "scipy>=1.10"]
 
 [project.optional-dependencies]
-docs = ["pypandoc_binary>=1.15"]
+docs = ["pypandoc_binary>=1.15", "mkdocs>=1.6,<2", "pymdown-extensions>=10,<11"]
 plots = ["matplotlib>=3.7"]
 dev = ["pytest>=7.4", "ruff>=0.9", "build>=1.2", "twine>=5", "matplotlib>=3.7"]
 
