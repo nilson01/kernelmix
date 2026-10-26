@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1
+
+- Use complete documentation and image URLs in the PyPI description.
+- Add the PyPI installation command to the guides and reference manual.
+
 ## 0.3.0
 
 - Add reproducible fitted-posterior comparisons with R and independent extension checks.

@@ -17,7 +17,7 @@ python -m pip install "kernelmix[plots]"
 ## From GitHub
 
 ```sh
-python -m pip install "kernelmix[plots] @ git+https://github.com/nilson01/kernelmix.git@v0.3.0"
+python -m pip install "kernelmix[plots] @ git+https://github.com/nilson01/kernelmix.git@v0.3.1"
 ```
 
 Start with the [analysis tutorial](tutorial.md) for fitting, diagnostics, prediction and exposure summaries. The [ozone example](airquality.md) includes observed data and saved results.

@@ -7,11 +7,11 @@ To handle different outcome types, the package combines this exposure function w
 
 | Task | Start here |
 | --- | --- |
-| Choose an outcome model and priors | [Models and assumptions](docs/methods.md) |
-| Fit, inspect, predict and compare exposures | [Analysis tutorial](docs/tutorial.md) |
-| Model clusters, kernels or detailed survival records | [Structured models](docs/structured.md) |
-| Find arguments and result fields | [API reference](docs/api.md) |
-| Check numerical evidence and limitations | [Evidence](docs/reproduction.md) |
+| Choose an outcome model and priors | [Models and assumptions](https://nilson01.github.io/kernelmix/methods/) |
+| Fit, inspect, predict and compare exposures | [Analysis tutorial](https://nilson01.github.io/kernelmix/tutorial/) |
+| Model clusters, kernels or detailed survival records | [Structured models](https://nilson01.github.io/kernelmix/structured/) |
+| Find arguments and result fields | [API reference](https://nilson01.github.io/kernelmix/reference/) |
+| Check numerical evidence and limitations | [Evidence](https://nilson01.github.io/kernelmix/reproduction/) |
 
 ## Install
 
@@ -24,7 +24,7 @@ For plots, use `python -m pip install "kernelmix[plots]"`.
 Or install the released source directly from GitHub:
 
 ```sh
-python -m pip install "kernelmix[plots] @ git+https://github.com/nilson01/kernelmix.git@v0.3.0"
+python -m pip install "kernelmix[plots] @ git+https://github.com/nilson01/kernelmix.git@v0.3.1"
 ```
 
 Python 3.10 or later is required.
@@ -56,7 +56,7 @@ sigma2              0.2159    0.08346     0.1142     0.4188
 
 These short chains illustrate the output and trigger mixing warnings. For an analysis, use longer runs and inspect agreement between chains and effective sample sizes, which account for dependence between draws.
 
-![Exposure response curve with pointwise 95% credible intervals](docs/figures/response.png)
+![Exposure response curve with pointwise 95% credible intervals](https://nilson01.github.io/kernelmix/figures/response.png)
 
 The curve varies the first exposure with the second at its median, relative to the all-median exposure profile. It describes a fitted association; a causal interpretation requires additional assumptions.
 
@@ -64,10 +64,10 @@ The curve varies the first exposure with the second at its median, relative to t
 
 Browse the [searchable documentation](https://nilson01.github.io/kernelmix/).
 
-The [common questions](docs/faq.md) explain prediction scales, missing values, selection and diagnostics. The [observed ozone example](docs/airquality.md) includes source data and saved results. Download the [reference manual](docs/manual.pdf) for offline reading. Contributors can find [development checks](docs/development.md) separately.
+The [common questions](https://nilson01.github.io/kernelmix/faq/) explain prediction scales, missing values, selection and diagnostics. The [observed ozone example](https://nilson01.github.io/kernelmix/airquality/) includes source data and saved results. Download the [reference manual](https://nilson01.github.io/kernelmix/manual.pdf) for offline reading. Contributors can find [development checks](https://nilson01.github.io/kernelmix/development/) separately.
 
 ## References and license
 
-[Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/kxu058) introduced BKMR for exposure-mixture analysis. [Bobb et al. (2018)](https://doi.org/10.1186/s12940-018-0413-y) described the R software and its binary-outcome extension. KernelMix implements these methods separately in Python and adds count and survival likelihoods, defined in the [model guide](docs/methods.md).
+[Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/kxu058) introduced BKMR for exposure-mixture analysis. [Bobb et al. (2018)](https://doi.org/10.1186/s12940-018-0413-y) described the R software and its binary-outcome extension. KernelMix implements these methods separately in Python and adds count and survival likelihoods, defined in the [model guide](https://nilson01.github.io/kernelmix/methods/).
 
-We compare selected Gaussian and probit posterior summaries and conditional calculations, including random intercepts, with installed R [`bkmr`](https://cran.r-project.org/package=bkmr) 0.2.2. The [evidence summary](docs/reproduction.md) records results and limits. See [NOTICE](NOTICE) for attribution and [LICENSE](LICENSE) for GPL-2.0-only terms.
+We compare selected Gaussian and probit posterior summaries and conditional calculations, including random intercepts, with installed R [`bkmr`](https://cran.r-project.org/package=bkmr) 0.2.2. The [evidence summary](https://nilson01.github.io/kernelmix/reproduction/) records results and limits. See [NOTICE](https://github.com/nilson01/kernelmix/blob/main/NOTICE) for attribution and [LICENSE](https://github.com/nilson01/kernelmix/blob/main/LICENSE) for GPL-2.0-only terms.
