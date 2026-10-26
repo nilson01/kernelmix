@@ -237,7 +237,6 @@ def test_cluster_archive_roundtrip_preserves_typed_levels_and_joint_predictions(
 
 @pytest.mark.parametrize('family', ['gaussian', 'binomial'])
 def test_clustered_sampler_state_and_omitted_vs_explicit_no_cluster_seed(family):
-    # Root executes this bounded check later; fixture authoring never ran fits.
     z = np.column_stack((np.arange(8.), np.sin(np.arange(8.))))
     y = np.array([0., 1., 0., 1., 1., 0., 1., 0.])
     if family == 'gaussian':
