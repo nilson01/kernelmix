@@ -1,0 +1,43 @@
+site_name: KernelMix
+site_description: Bayesian kernel machine regression for exposure mixtures in Python.
+repo_url: https://github.com/nilson01/kernelmix
+edit_uri: ''
+docs_dir: docs
+site_dir: site
+hooks: [docs/hooks.py]
+use_directory_urls: true
+theme:
+  name: readthedocs
+plugins:
+  - search
+markdown_extensions:
+  - tables
+  - attr_list
+  - fenced_code
+  - pymdownx.arithmatex:
+      generic: true
+extra_css: [assets/style.css]
+extra_javascript:
+  - assets/mathjax-config.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js
+nav:
+  - Start here: index.md
+  - Installation: installation.md
+  - Tutorials:
+      - Fit, predict and interpret: tutorial.md
+      - Observed ozone: airquality.md
+      - Clusters, kernels and survival records: structured.md
+  - Models and assumptions: methods.md
+  - API by task:
+      - Choose an API: reference/index.md
+      - Fit outcomes and set priors: reference/fitting.md
+      - Inspect and save results: reference/results.md
+      - Predict outcomes: reference/prediction.md
+      - Clusters and survival: reference/cluster-survival.md
+      - Exposure contrasts and curves: reference/contrasts.md
+      - Plot and calculate kernels: reference/plots-kernels.md
+  - Common questions: faq.md
+  - Evidence and limits: reproduction.md
+  - Reference PDF: manual.md
+  - Citation and license: citation.md
+  - Development: development.md
