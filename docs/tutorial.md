@@ -2,7 +2,7 @@
 
 This tutorial starts with a continuous outcome and then changes the outcome model for binary, count and survival data. The models share an exposure–response function $h$, which describes joint exposure associations, including curves and interactions. Other measured variables enter as linear adjustment terms.
 
-Run the Python blocks in order after [installation](../README.md). The deterministic data and short chains illustrate the workflow, not inference. For an analysis, use longer chains, check sampling diagnostics and assess sensitivity to reasonable priors (distributions specified before using outcome data).
+Run the Python blocks in order after [installation](../README.md). The data are constructed and the chains are deliberately short, so the examples demonstrate the calls and outputs. For a research analysis, use longer chains, inspect sampling diagnostics and assess how results change under reasonable prior distributions.
 
 ## Define the data
 
@@ -40,7 +40,7 @@ checks = gaussian.diagnostics()
 
 The summary reports means, standard deviations and credible intervals from the posterior, which combines data and priors. A 95% credible interval contains 95% of the posterior probability for the reported quantity.
 
-To assess sampling, split R-hat compares chain segments; values near one are desirable. Effective sample size accounts for dependence between draws. These checks cannot validate the model. PIPs depend on selection priors and do not measure causal importance.
+Before interpreting the summary, inspect split R-hat and effective sample size. R-hat compares chain segments, with values near one desirable; effective sample size accounts for dependence between draws. These diagnostics assess sampling, not model validity. PIPs also depend on the selection priors and do not measure causal importance.
 
 ## Predict at exposure profiles
 
@@ -100,7 +100,7 @@ probability_contrast = km.overall_effect(
 )
 ```
 
-Mean predictions are probabilities; observation predictions are zero or one. A response-scale contrast subtracts joint predicted probabilities and is not an odds ratio. In these summaries, `X` is one raw adjustment vector fixed across profiles; omitting it uses retained training means. Latent-scale summaries compare $h$ alone, exclude adjustment and reject `X`.
+Mean predictions are probabilities; observation predictions are zero or one. A response-scale contrast subtracts joint predicted probabilities and is not an odds ratio. In these summaries, `X` is one raw adjustment vector fixed across profiles; omitting it uses retained training means. Latent-scale summaries compare $h$ alone. Because they exclude covariate adjustment, supplying `X` raises an error.
 
 ## Fit counts and include observation time
 
@@ -119,9 +119,9 @@ count_observation = count_fit.predict(
 )
 ```
 
-`count_mean` gives expected counts at the supplied observation times; observation predictions give integer counts. Use `family="poisson"` for Poisson. NB2 `dispersion` controls extra variation beyond exposure and cluster effects.
+`count_mean` gives expected counts at the supplied observation times; observation predictions give integer counts. Use `family="poisson"` for Poisson. For NB2, `dispersion` controls the extra conditional variation beyond the mean; exposure and cluster effects enter that mean.
 
-Response-scale exposure summaries use zero offset (unit observation exposure), while latent summaries compare $h$ on the log-mean scale. Count models use proper coefficient priors; see [defaults](methods.md).
+For response-scale exposure summaries, the log offset is zero, corresponding to one unit of observation time or exposure amount. Latent summaries instead compare $h$ on the log-mean scale. The [model guide](methods.md) gives the proper coefficient priors used for count models.
 
 ## Fit right-censored survival times
 
@@ -156,8 +156,7 @@ scientific justification.
 `kind="hazard"`. Ordinary `predict` returns relative hazards for this family.
 Response-scale exposure contrasts therefore subtract relative hazards; they do
 not subtract survival probabilities. For hazard ratios, exponentiate each
-latent `h` contrast before summarizing it. The baseline and a fitted intercept
-share a scale, so this example omits the intercept.
+latent `h` contrast before summarizing it. Because the intercept and baseline hazard can compensate for each other, this example omits the intercept.
 
 ![Count response and survival probabilities. (a) Negative-binomial mean counts as $z_1$ varies, with offset zero. (b) Survival probabilities at the first exposure's 25th and 75th percentiles. Other exposures are fixed at their medians and $u=0$. Shading shows pointwise 95% credible intervals.](figures/count-survival.png)
 
@@ -169,7 +168,7 @@ they do not support inference or show whether the intervals achieve their stated
 
 ## Account for clustered observations
 
-Outcome type and clustering are separate choices. All five families accept `cluster` labels for observations sharing a Gaussian random intercept. Exposure-selection `groups` has a different role.
+Clustering can be modeled with any of the five outcome families. Supply `cluster` labels to identify observations that share a Gaussian random intercept. These labels group observations; exposure-selection `groups` instead groups exposure columns.
 
 ```python
 cluster = ["A"] * 3 + ["B"] * 3 + ["C"] * 3 + ["D"] * 3
@@ -183,7 +182,7 @@ cluster_prediction = clustered_fit.predict(
 )
 ```
 
-Known labels use fitted intercepts; equal unseen labels share a new intercept per draw. Omitting `cluster_new`, or requesting exposure summaries, fixes the intercept at zero rather than averaging over clusters. For slopes or Gaussian residual correlation, see [structured models](structured.md).
+For a known cluster, prediction uses its fitted intercept. Rows with the same new label share one newly sampled intercept in each draw. Omitting `cluster_new`, or requesting exposure summaries, sets the intercept to zero; it does not average predictions over clusters. For slopes or Gaussian residual correlation, see [structured models](structured.md).
 
 ## Plot the results
 

@@ -1,8 +1,8 @@
 # Structured models and Gaussian process approximations
 
-Start with the exposure function and outcome model in the [model guide](methods.md). A Gaussian process (GP) relates function values at different exposure profiles. The options here change four separate components: the exposure kernel, its computational representation, observation dependence, or event-time records. They return `StructuredFit` and use the priors below.
+The [model guide](methods.md) introduces the exposure function and outcome distribution, following [Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/kxu058) and the [2018 extension](https://doi.org/10.1186/s12940-018-0413-y). A Gaussian process (GP) prior relates exposure-function values at different exposure profiles.
 
-The exposure formulation follows [Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/kxu058) and the [2018 extension](https://doi.org/10.1186/s12940-018-0413-y). Additional structures have separate definitions.
+This guide explains how to change that kernel, reduce the cost of its calculations, model dependence between observations, or describe more detailed event-time records. These options use the `StructuredFit` result class and the separate priors defined below.
 
 Run the blocks in order. Eight observations and four warmup/saved draws per chain illustrate the interface. For inference, use longer chains, sampling diagnostics, prior-sensitivity checks and exposure profiles supported by the data.
 
@@ -60,14 +60,13 @@ Kernel choice also affects the fitting route and its priors. For exposure-functi
 | Gaussian residual variance $\sigma^2$ | Inverse-gamma(shape 2, rate 1) |
 | Random-coefficient covariance | Defined in the [random-effects section](#model-random-intercepts-and-slopes) |
 
-A `prior` dictionary overrides supplied fields; a `Prior` object supplies every
-field. Check `fit.settings["prior"]` when comparing models. The
+A `prior` dictionary changes only the supplied fields; a `Prior` object supplies every field. Check `fit.settings["prior"]` when comparing models. The
 `cluster_lambda_mean` and `cluster_lambda_sd` fields apply to default random
 intercepts, not structured random coefficients.
 
 ## Reduce GP matrix size
 
-Kernel choice specifies similarity; approximation controls how the Gaussian process (GP) is represented. `"dense"` uses the full kernel. `"pp"` represents $h$ through values at a smaller set of exposure profiles (knots). `"rff"` uses fixed sine/cosine features to approximate the kernel.
+After choosing how the kernel relates exposure profiles, choose how to represent the GP in computation. `"dense"` uses the full kernel. `"pp"` represents $h$ through values at a smaller set of exposure profiles (knots). `"rff"` uses fixed sine/cosine features to approximate the kernel.
 
 ```python
 pp = km.fit(y, Z, X, kernel="matern32", approximation="pp",
@@ -82,11 +81,11 @@ be supplied as `knots=Z[[0, 3, 5, 7]]`. Its covariance is $\tau\mathbf K_{ZU}\ma
 
 For random Fourier features (RFF), `n_components` counts frequency pairs, giving twice as many features. Paired sine/cosine features follow [Rahimi and Recht](https://papers.nips.cc/paper_files/paper/2007/file/013a006f03dbc5392effeb8f18fda755-Paper.pdf). Frequencies are Gaussian for the Gaussian kernel, multivariate Student-t with three degrees of freedom for Matérn, and a Gaussian/Gamma scale mixture for RQ. Each mixture scale is shared across all coordinates of one frequency vector. Base draws stay fixed throughout sampling and are saved with the fit. Inference treats this saved set of features as fixed. It does not include uncertainty from choosing a different feature set, and a fixed feature count does not establish approximation accuracy.
 
-During fitting, PP/RFF use observation-by-feature and feature-by-feature matrices. Joint predictions and exposure contrasts still return dense matrices over the requested prediction rows; keep these requests small or use suitable batches. Large correlated Gaussian residual blocks can still require dense calculations. Dense/PP eigensystems treat eigenvalues at most `100 * dimension * machine_epsilon * largest_eigenvalue` as zero for numerical calculations. Eigenvalues measure variation along matrix directions; this threshold removes directions too small to distinguish reliably from zero. Saved dense training values and PP knot values preserve prediction coordinates across reloads.
+During fitting, PP and RFF store matrices with one row per observation and one column per feature, together with square matrices whose size is the feature count. Joint predictions and exposure contrasts still return dense matrices over the requested prediction rows; keep these requests small or use suitable batches. Large correlated Gaussian residual blocks can still require dense calculations. Dense/PP eigensystems treat eigenvalues at most `100 * dimension * machine_epsilon * largest_eigenvalue` as zero for numerical calculations. Eigenvalues measure variation along matrix directions; this threshold removes directions too small to distinguish reliably from zero. Saved dense training values and PP knot values preserve prediction coordinates across reloads.
 
 ## Model random intercepts and slopes
 
-For repeated observations, cluster effects can supplement the shared exposure function. `cluster` labels observation groups; `random_slopes` adds columns after the random intercept. All five families support these coefficients. Exposure-selection `groups` is separate.
+For repeated observations, random coefficients describe variation between clusters beyond the shared exposure function. Supply `cluster` labels to identify the observation groups and `random_slopes` to add slopes after the random intercept. All five outcome families support these coefficients. The `groups` argument instead groups exposures for selection.
 
 ```python
 slopes = km.fit(y, Z, X, cluster=cluster, random_slopes=slope, **demo)
@@ -105,7 +104,7 @@ fixed_slopes = km.fit(
 
 The random-coefficient prior separates standard deviations and correlations. Each SD is `random_scale * Phi(raw)`, with standard-normal `raw` and cumulative distribution function `Phi`, giving a uniform SD between zero and `random_scale` (default two). Correlations come from a normalized lower-triangular matrix with normal off-diagonal entries. This proper prior is neither LKJ nor uniform over correlation matrices.
 
-For prediction, known labels use saved coefficients; each distinct unseen label receives one vector per draw, shared across its rows. Omitting labels fixes effects at zero, not an average over new clusters on nonlinear links. Supply `random_slopes_new` for new slope rows. Redundant design columns are rejected; few clusters or little slope variation can still make covariance estimates sensitive to priors.
+Prediction uses saved coefficients for known clusters. Each distinct new label receives one coefficient vector per draw, shared across its rows. Omitting labels sets random effects to zero. With a nonlinear link, this differs from averaging predictions over new clusters. Supply `random_slopes_new` for new slope rows. Redundant design columns are rejected; few clusters or little slope variation can still make covariance estimates sensitive to priors.
 
 Count/probit inputs retain their usual meanings. For example, an NB2 model can use the same slope workflow:
 
@@ -116,11 +115,11 @@ nb = km.fit(counts, Z, X, family="negative_binomial", cluster=cluster,
 count_means = nb.predict(Z[:2], X[:2], seed=50)
 ```
 
-Count `offset` remains a log observation-exposure offset. Response predictions are count means or, with `kind="observation"`, sampled counts. Response-scale exposure contrasts use zero offset and zero random effects.
+For counts, `offset` still supplies the logarithm of observation time or exposure amount. Response predictions are count means or, with `kind="observation"`, sampled counts. Response-scale exposure contrasts use zero offset and zero random effects.
 
 ## Separate Gaussian variance and correlation
 
-Random coefficients describe shared cluster variation. Gaussian residual models separately control variation left after fitting and correlation within a cluster. With `variance_design=V`,
+Random coefficients describe variation shared within a cluster. A Gaussian residual model describes the remaining variation and can allow residual variances to differ between observations or residuals to be correlated within a cluster. With `variance_design=V`,
 $\operatorname{Var}(\epsilon_i\mid\sigma^2,\boldsymbol\gamma)=\sigma^2\exp(\mathbf v_i^\mathsf T\boldsymbol\gamma)$,
 where $\mathbf v_i$ is row $i$ of $V$ and $\boldsymbol\gamma\sim N(\mathbf0,\mathbf I)$. No intercept is added. Columns must be linearly independent, and no combination may give a nonzero constant column: `sigma2` already sets the baseline variance. This parameterization is distinct from [nlme's variance function](https://stat.ethz.ch/R-manual/R-devel/library/nlme/html/varExp.html).
 
@@ -148,7 +147,7 @@ AR1 times must be distinct integers and exponential times distinct finite values
 AR1 uses `rho**gap`, with `-1 < rho < 1`; exponential uses `exp(-gap/range)`,
 with positive range. See nlme's [AR1 definition](https://stat.ethz.ch/R-manual/R-devel/library/nlme/html/corAR1.html) and [exponential definition](https://stat.ethz.ch/R-manual/R-devel/library/nlme/html/corExp.html). A supplied `correlation_parameter` is fixed. Otherwise, AR1 uses `rho=tanh(raw)` and exponential uses `range=exp(raw)`, each with a standard-normal prior on `raw`.
 
-For known clusters, mean prediction uses the fitted training residuals to predict the new residual component. Observation prediction also includes uncertainty in that component. Supply original
+For known clusters, new residuals may be correlated with training residuals. Mean prediction uses that relationship to predict the new residual component, and observation prediction includes uncertainty in it. Supply original
 `cluster_new` labels to condition training-row predictions; their times and slope
 rows are reused. Unseen or omitted labels have no training residual
 cross-correlation. `predict_h` and exposure contrasts do not use training residuals to predict that component.
@@ -173,7 +172,7 @@ With fixed correlation and no custom cross matrix, new residuals are independent
 
 ## Encode delayed entry and competing events
 
-For survival models, the observation record also determines the likelihood. Delayed entry starts follow-up after time zero and includes only subjects event-free until entry. Competing causes identify different first-event types. `y` records an exact event time, right-censoring time or interval lower bound; `event=0` means right censoring, and `1..n_causes` identifies a cause. Only the first terminal event is modeled, excluding recurrent events and general state transitions. Baseline intervals are right closed: an event exactly at a cut belongs to the interval on its left.
+For survival data, the likelihood must account for when follow-up starts and what is known about the event. Delayed entry starts follow-up after time zero and includes only subjects event-free until entry. Competing causes identify different first-event types. `y` records an exact event time, right-censoring time or interval lower bound; `event=0` means right censoring, and `1..n_causes` identifies a cause. Only the first terminal event is modeled, excluding recurrent events and general state transitions. Baseline intervals are right closed: an event exactly at a cut belongs to the interval on its left.
 
 ```python
 time = np.array([0.8, 1.4, 2.2, 3.2, 1.1, 1.9, 2.8, 3.6])
@@ -203,7 +202,7 @@ For competing risks, survival means no event of any cause; cumulative incidence 
 
 Survival response-scale contrasts subtract relative hazards; they are not hazard ratios or survival-probability differences. To select results, `cif.for_cause(2)` extracts one CIF, whereas a fit's `for_cause(2)` selects its exposure function, relative-hazard predictions and contrasts. `km.plot_survival(cause_two)` plots a CIF with pointwise intervals when Matplotlib is installed.
 
-Prediction `entry` describes subjects known to be event-free through that time; before it, survival is one and CIFs are zero. Static-profile prediction extends the final baseline hazard beyond follow-up. Baseline cuts are held fixed; their selection uncertainty is excluded. A survival intercept and baseline share a scale, so `intercept=False` is useful unless their separate prior-dependent roles are intended.
+Prediction `entry` describes subjects known to be event-free through that time; before it, survival is one and CIFs are zero. Static-profile prediction extends the final baseline hazard beyond follow-up. Baseline cuts are held fixed; their selection uncertainty is excluded. An intercept and baseline hazard can compensate for each other. Use `intercept=False` unless separate, prior-dependent estimates are intended.
 
 Delayed-entry fits describe subjects included after surviving to their recorded entry times, at their recorded predictor values. They do not recover risk among people who were never observed before entry, or correct for how survival to entry changes who is included. New-cluster predictions use this same model for included subjects.
 
@@ -226,7 +225,7 @@ The likelihood assumes that censoring and inspection times provide no further in
 
 ## Supply known covariate paths
 
-For predictors that change over time, repeated `subject` labels identify successive `(entry, y]` intervals. Rows must be chronological, contiguous and nonoverlapping; only the last may have an event or finite censoring interval. Later starts split an existing history, not new cohort entry. `missing="drop"` removes a whole subject history if required values are missing, preserving the record structure but not correcting missing-data bias.
+When predictors change over time, use repeated `subject` labels to identify successive `(entry, y]` intervals for the same subject. Rows must be chronological, contiguous and nonoverlapping; only the last may have an event or finite censoring interval. A later row continues the same subject's history rather than representing entry into the cohort. `missing="drop"` removes a whole subject history if required values are missing, preserving the record structure but not correcting missing-data bias.
 
 ```python
 subject = np.repeat(np.arange(4), 2)

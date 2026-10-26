@@ -1,8 +1,6 @@
 # Ozone and weather in New York
 
-This exploratory example models observed ozone using solar radiation, wind and
-temperature. It includes source data, saved results and sampling checks. It is
-separate from the applications in Bobb et al. (2015).
+We examine how daily ozone varies with solar radiation, wind and temperature, adjusting for month. This exploratory analysis uses the public New York air-quality data, separately from the applications in Bobb et al. (2015). Source data, saved results and sampling checks accompany the example.
 
 ## Data and question
 
@@ -43,7 +41,7 @@ $$Y_i=h(\mathbf z_i)+\mathbf x_i^\mathsf T\boldsymbol\beta+\epsilon_i,\qquad
 
 We standardize each exposure using the mean and sample standard deviation of the 111 retained days. Month indicators describe broad seasonality; independent errors remain a working assumption for this daily series.
 
-For the Gaussian kernel, independent $r_m\sim\mathrm{Gamma}(1,1)$ priors use shape and rate one. Residual variance has an inverse-gamma(2,1) prior. Other defaults remain: a flat prior for adjustment coefficients and $\lambda=\tau/\sigma^2\sim\mathrm{Gamma}(1,0.1)$. Here $\tau$ is the GP covariance amplitude and $\sigma^2$ the residual variance. Exposure selection is disabled.
+For the Gaussian kernel, independent $r_m\sim\mathrm{Gamma}(1,1)$ priors use shape and rate one. Residual variance has an inverse-gamma(2,1) prior. We retain the default flat prior for adjustment coefficients and $\lambda=\tau/\sigma^2\sim\mathrm{Gamma}(1,0.1)$. Here $\tau$ is the GP covariance amplitude and $\sigma^2$ the residual variance. Exposure selection is disabled.
 
 From the source folder, with KernelMix and its plotting extra installed:
 
@@ -65,7 +63,7 @@ Four chains run sequentially with seed 73. Each has 5,000 warmup iterations and 
 | Correlation of consecutive-day fitted residuals | 0.0136 |
 | Fitting time on the recorded local environment | 72.6 seconds |
 
-Sampling diagnostics use all saved draws for ten parameters. R-hat compares chains; effective sample size accounts for dependence between draws. Neither proves convergence of every curve. Curve and fitted-residual summaries use 400 evenly spaced draws per chain.
+Sampling diagnostics use all saved draws for ten parameters. R-hat compares chains; effective sample size accounts for dependence between draws. These parameter diagnostics do not establish convergence of every estimated curve. Curve and fitted-residual summaries use 400 evenly spaced draws per chain.
 
 Residual checks use training data, not held-out observations. The consecutive-day residual correlation cannot establish independent errors.
 
@@ -73,11 +71,11 @@ Residual checks use training data, not held-out observations. The consecutive-da
 
 To isolate a conditional weather association, each curve varies one exposure with the others at their medians. The mean curve generally rises with temperature and falls with wind; the solar-radiation curve is nonlinear. On the log scale, exponentiating a difference gives a ratio of fitted ozone medians at fixed weather and month values, not an arithmetic mean difference.
 
-The grids use distinct 5th–95th percentiles. Combining these with other exposures' medians may produce uncommon profiles. The [curve table](results/airquality/curves.csv) records distance to the nearest observed profile after standardization; the distance plot below shows this support check.
+Each grid spans the 5th–95th percentiles, with duplicate values removed. Combining a grid value with the other exposures' medians may produce a profile uncommon in the observed data. The [curve table](results/airquality/curves.csv) records its distance to the nearest observed profile after standardization; the distance plot below shows how close these combinations are to the data.
 
 ### Parameter estimates
 
-The fitted model separates kernel relevance $r_m$ from month coefficients $\boldsymbol\beta$. These have different roles and scales. Points show posterior means; bars show 95% equal-tailed credible intervals.
+The kernel relevance parameters $r_m$ describe how exposure differences change the covariance of $h$. The month coefficients $\boldsymbol\beta$ instead describe differences from May on the log-ozone scale. Points show posterior means; bars show 95% equal-tailed credible intervals.
 
 ![Posterior means and 95% equal-tailed credible intervals. (a) Exposure relevance $r_m$. (b) Month coefficients in $\boldsymbol\beta$, relative to May, on the log-ozone scale. The intercept is omitted. Relevance does not measure causal importance.](figures/ozone-parameters.png)
 

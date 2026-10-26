@@ -37,7 +37,7 @@ that a platform passed.
 | Finite-basis storage | Instrumented PP/RFF operations avoid training-size square matrices; this is not a large-dataset benchmark |
 | Package and input checks | Exercise saved objects, preprocessing, errors, distribution contents and installed examples |
 
-Posterior tests use independent answers, fixed seeds and tolerances allowing for sampling error based on effective sample size. They check small cases, not repeated-dataset performance, general interval coverage, original-study reproduction or full R API equivalence.
+We compare sampled posterior summaries with independently calculated answers, using fixed seeds and tolerances that allow for sampling error based on effective sample size. These tests check small cases, not repeated-dataset performance, general interval coverage, original-study reproduction or full R API equivalence.
 
 ### Reproduce the R fixtures
 
@@ -66,8 +66,7 @@ and random-number streams differ; equal seeds do not produce matching chains.
 ## Observed data and original studies
 
 The [ozone example](airquality.md) supplies data, scripts, tables and residual
-checks. [Reference studies](reproduction.md) records its limits, original-study
-gaps and unresolved platform checks.
+checks. The [evidence summary](reproduction.md) describes the analysis limits, missing inputs for the original studies and unresolved platform checks.
 
 ## Build the manual
 
