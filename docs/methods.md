@@ -2,7 +2,7 @@
 
 ## Continuous outcomes
 
-We first describe a continuous outcome. Let $Y_i$ be the outcome for observation $i$, $\mathbf z_i$ its $M$ exposures, and $\mathbf x_i$ its adjustment covariates. Following [Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/kxu058), the function $h(\mathbf z_i)$ describes the joint exposure contribution, while $\mathbf x_i^{\mathsf T}\boldsymbol\beta$ provides linear adjustment:
+For a continuous outcome, we separate the joint exposure contribution from linear covariate adjustment. Let $Y_i$ be the outcome for observation $i$, $\mathbf z_i$ its $M$ exposures, and $\mathbf x_i$ its adjustment covariates. Following [Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/kxu058), the function $h(\mathbf z_i)$ describes the joint exposure contribution, while $\mathbf x_i^{\mathsf T}\boldsymbol\beta$ provides linear adjustment:
 
 $$
 Y_i=h(\mathbf z_i)+\mathbf x_i^{\mathsf T}\boldsymbol\beta+\epsilon_i,
@@ -24,7 +24,7 @@ Here $h_i=h(\mathbf z_i)$, $n$ is the observation count, $\tau$ controls prior v
 
 The default Gaussian sampler integrates out $\mathbf h$: it accounts for its distribution without sampling each value during parameter fitting. It stores $\lambda=\tau/\sigma^2$ as `lambda`, giving covariance $\sigma^2(\mathbf I+\lambda\mathbf K_{Z,\mathbf r})$, where $\mathbf I$ is the identity matrix.
 
-The code uses the following names for the paper's quantities. The meaning of `lambda` depends on the fitting route.
+The table maps the model notation to API names. Check the meaning of `lambda` when changing fitting routes: some routes store a variance ratio, while others store the GP amplitude directly.
 
 | Paper quantity | Meaning | API name |
 | --- | --- | --- |
@@ -46,7 +46,7 @@ $$
 
 Here $\Phi$ is the standard normal cumulative distribution function. The binary outcome is determined by whether an underlying normal variable exceeds zero; its residual variance is fixed at one. This extension follows [Bobb et al. (2018)](https://doi.org/10.1186/s12940-018-0413-y). Probability contrasts depend on exposures and adjustment covariates and are not odds ratios.
 
-The coefficient prior also matters. Default fits use a flat prior and reject complete or quasi-complete separation, where adjustment covariates separate outcome classes, possibly with observations on the separating boundary. The posterior may then have infinite total probability. Structured fits instead use a proper normal coefficient prior, with total probability one.
+Default probit fits use a flat coefficient prior. They reject complete or quasi-complete separation: adjustment covariates separate the outcome classes, possibly with observations on the separating boundary. Under this prior, separation can give an infinite integral for the unnormalized posterior density, so no posterior probability distribution can be obtained. Structured fits use a proper normal coefficient prior, which integrates to one.
 
 ## Count outcomes
 
@@ -107,13 +107,11 @@ and placement. Baseline priors depend on the chosen time unit.
 The likelihood above describes the default right-censored model. The
 [structured survival interface](structured.md) also supports delayed entry,
 competing causes, predictor histories and left/interval censoring. All-censored data are accepted with a warning:
-the posterior then depends strongly on the priors. A fitted intercept and the
-baseline hazard share a scale. Separate estimates are anchored by their priors;
-`intercept=False` avoids adding that redundant coefficient.
+the posterior then depends strongly on the priors. An intercept and the baseline hazard can compensate for each other without changing the fitted hazard. Their separate estimates therefore depend on the priors; `intercept=False` avoids adding the redundant intercept.
 
 ## Random intercepts
 
-The outcome models above can share variation within observation clusters. In the default random-intercept route, $c(i)$ identifies observation $i$'s cluster and $u_g\sim N(0,\sigma_u^2)$ independently across clusters. Conditional on $h$, covariates and these intercepts, observations are independent under the outcome likelihood. The `cluster` labels identify observations; `groups` instead groups exposures for selection.
+Observations in the same cluster may share variation beyond the exposure function and adjustment covariates. A random intercept represents this shared contribution. In the default fitting route, $c(i)$ identifies observation $i$'s cluster and $u_g\sim N(0,\sigma_u^2)$ independently across clusters. Conditional on $h$, covariates and these intercepts, observations are independent under the outcome likelihood. The `cluster` labels identify observations; `groups` instead groups exposures for selection.
 
 For default Gaussian/probit fits, `lambda_cluster` is $\sigma_u^2/\sigma^2$, with probit
 $\sigma^2=1$. The marginalized covariance is
@@ -134,7 +132,7 @@ For prediction, known labels use fitted intercepts, while equal unseen labels sh
 
 ## Priors and exposure selection
 
-The prior completes the model specification. Default Gaussian/probit priors follow R `bkmr` 0.2.2; [structured priors](structured.md) differ. Gamma distributions below use shape and **rate**. The inverse-gamma density is proportional to $(\sigma^2)^{-a-1}\exp(-b/\sigma^2)$ for shape $a$ and parameter $b$.
+To fit the model, we specify prior distributions for its unknown parameters. Default Gaussian and probit fits use the priors in R `bkmr` 0.2.2; [structured fits](structured.md) use different priors. Gamma distributions below use shape and **rate**. The inverse-gamma density is proportional to $(\sigma^2)^{-a-1}\exp(-b/\sigma^2)$ for shape $a$ and parameter $b$.
 
 | Quantity | Default |
 | --- | --- |
@@ -149,14 +147,13 @@ $\lambda,\lambda_u\sim\mathrm{Gamma}(4,4)$, independent
 $\boldsymbol\beta\sim N(\mathbf0,25\mathbf I)$,
 $\phi\sim\mathrm{Gamma}(2,0.1)$ for NB2, and
 $\lambda_{0j}\sim\mathrm{Gamma}(0.1,0.1)$ for survival.
-At fixed finite predictor values, the resulting prior distributions of the count mean and relative hazard have finite means and second moments. A supplied `Prior` is used as specified. A partial dictionary overlays
-the selected family's defaults, for example `prior={"r_distribution": "gamma"}`.
+At fixed finite predictor values, the resulting prior distributions of the count mean and relative hazard have finite means and second moments. A `Prior` object supplies all prior settings. A dictionary changes only the supplied fields and keeps the selected family's other defaults, for example `prior={"r_distribution": "gamma"}`.
 Warnings identify supplied amplitude or dispersion priors for which these moment
 guarantees do not hold. Assess prior sensitivity; large finite moments can still
 be numerically unstable. `sigma2=1` is a storage convention for count/survival fits and is omitted from
 their summaries.
 
-The relevance prior needs particular care: inverse-uniform $r_m$ has an unbounded upper tail, and a finite sampling average does not establish that its posterior mean exists. Inspect quantiles and mixing and assess prior sensitivity. `Prior(r_distribution="gamma")` and `"unif"` provide alternatives. Gamma parameters use mean and standard deviation; uniform bounds apply to $r_m$ for `"unif"` and $1/r_m$ for `"invunif"`.
+Under the inverse-uniform relevance prior, $r_m$ has no finite upper bound. A finite average of sampled values does not establish that its posterior mean exists. Inspect posterior quantiles and chain mixing, and compare results under alternative priors. `Prior(r_distribution="gamma")` and `"unif"` provide alternatives. Gamma parameters use mean and standard deviation; uniform bounds apply to $r_m$ for `"unif"` and $1/r_m$ for `"invunif"`.
 
 With component selection, $\delta_m\sim\mathrm{Bernoulli}(\pi)$ indicates whether
 $r_m>0$. Excluded exposures have $r_m=0$. Group selection uses the groups $S_g$
@@ -184,7 +181,7 @@ original row indices are stored in `result.data["rows"]`. Complete-case fitting 
 caused by missing data. Covariates must be numeric; categorical encoding is the
 caller's responsibility.
 
-After preprocessing, each chain samples the posterior distribution, which combines data and priors. Chains run sequentially with separate random streams. `draws` counts saved draws after `warmup`, and `thin` sets their spacing. Proposals remain fixed; `sampling_info` records acceptance counts and runtime.
+After preprocessing, each chain samples the posterior distribution, which combines data and priors. Chains run sequentially with separate random streams. `draws` counts saved draws after `warmup`, and `thin` sets their spacing. Proposal scales stay fixed during sampling. The result's `sampling_info` records acceptance counts and runtime.
 
 The sampler depends on the outcome. Default Gaussian fits integrate out $h$ during parameter sampling. Binary fits also sample underlying normal outcomes constrained by the observed response signs; prediction uses these saved values.
 
@@ -193,7 +190,7 @@ Default count/survival fits sample a noncentered GP with
 log-scale Metropolis updates and conjugate baseline updates. Eigenvalues at most
 $100n\epsilon\max(1,\lambda_{\max}(\mathbf K))$, where $\epsilon$ is machine
 precision, are treated as zero in numerical calculations. Eigenvalues measure variation along matrix directions; very small ones cannot be distinguished reliably from zero at machine precision. No small constant is added to the kernel diagonal (diagonal jitter).
-Prediction uses the same rank rule and the saved latent function. Saved auxiliary white coordinates are internal, standardized sampling variables. Their eigenvector signs can differ across platforms without changing the represented function. Archive validation checks that values lie in the supported matrix directions rather than requiring identical signs.
+Prediction uses the same rank rule and the saved latent function. The sampler also saves standardized auxiliary variables. The eigenvectors used to represent them may have different signs on different platforms while representing the same function. Archive validation therefore checks the represented matrix directions without requiring identical eigenvector signs.
 
 Structured fits instead sample the GP and other normal-prior coordinates jointly by elliptical slice sampling, with log-scale Metropolis updates for amplitudes, relevance, dispersion and survival baseline rates. Gaussian residual variance has a conditional inverse-gamma update. Their priors and covariance options are defined in the [structured guide](structured.md).
 

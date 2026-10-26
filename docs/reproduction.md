@@ -1,6 +1,6 @@
 # Verified results and open gaps
 
-KernelMix follows [Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/kxu058), with the [2018 probit and software extension](https://doi.org/10.1186/s12940-018-0413-y). We distinguish numerical agreement, interval coverage across repeated datasets (calibration), and reproduction of the original studies. Each requires separate evidence.
+KernelMix implements the BKMR formulation introduced by [Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/kxu058), including the probit model described in the [2018 software paper](https://doi.org/10.1186/s12940-018-0413-y). We check numerical calculations separately from interval coverage across repeated datasets and reproduction of the original studies. Agreement in one of these checks does not establish the others.
 
 ## Evidence status
 
@@ -12,7 +12,7 @@ KernelMix follows [Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/kxu
 | Repeated-dataset calibration | Open: systematic estimation error, interval coverage and exposure-selection performance need a separate study |
 | Original-paper numerical reproduction | Blocked by missing original study assets and incomplete settings |
 
-The R fixtures contain constructed parameter values, not matched fitted chains. Markov chain Monte Carlo (MCMC) approximates the posterior by sampling; different samplers need not yield identical chains from equal seeds. [Numerical evidence](development.md#numerical-evidence) gives versions and comparison conventions.
+For the R comparisons, we hold constructed parameter values fixed and compare calculations at those values. We do not compare fitted chains. Markov chain Monte Carlo (MCMC) approximates the posterior by sampling, and different samplers can produce different chains even with equal seeds. [Numerical evidence](development.md#numerical-evidence) gives versions and comparison conventions.
 
 ## Original-paper targets
 

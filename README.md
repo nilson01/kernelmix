@@ -75,16 +75,10 @@ The curve varies the first exposure with the second at its median, relative to t
 | Check the evidence | [Verified results and open gaps](docs/reproduction.md), [development checks](docs/development.md) |
 | Read offline | [Reference manual](docs/manual.pdf) |
 
-For model choice, the guides explain how kernels, cluster effects and outcome distributions fit together. Dense Gaussian process calculations limit sample size; finite bases reduce computation but approximate the model and can change uncertainty. Group selection permits at most one active exposure per group. Survival uses a piecewise-exponential likelihood. Priors differ between default and structured fits, and favorable diagnostics do not establish convergence or valid assumptions.
+The guides explain how the exposure function, outcome distribution and cluster effects form a model. For larger datasets, finite bases reduce the cost of Gaussian process calculations, but they approximate the model and can change uncertainty. Group selection allows at most one active exposure per group, and survival models use a piecewise-exponential likelihood. Check the priors for the selected fitting route and assess model assumptions separately from sampling diagnostics.
 
 ## References and license
 
-The method is due to [Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/kxu058).
-The software and binary-outcome extension are described by
-[Bobb et al. (2018)](https://doi.org/10.1186/s12940-018-0413-y).
-KernelMix is a separate Python implementation. Selected Gaussian/probit calculations, including random intercepts, are checked
-at fixed parameter values against R [`bkmr`](https://cran.r-project.org/package=bkmr) 0.2.2.
-See [NOTICE](NOTICE) for attribution and [LICENSE](LICENSE) for GPL-2.0-only terms.
+[Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/kxu058) introduced BKMR for exposure-mixture analysis. [Bobb et al. (2018)](https://doi.org/10.1186/s12940-018-0413-y) described the R software and its binary-outcome extension. KernelMix implements these methods separately in Python and adds count and survival likelihoods, defined in the [model guide](docs/methods.md).
 
-Count and survival models use additional standard likelihoods documented in the
-[model guide](docs/methods.md).
+We compared selected Gaussian and probit calculations, including random intercepts, with R [`bkmr`](https://cran.r-project.org/package=bkmr) 0.2.2 at fixed parameter values. These comparisons check numerical calculations; they do not establish agreement between fitted chains. See [NOTICE](NOTICE) for attribution and [LICENSE](LICENSE) for GPL-2.0-only terms.

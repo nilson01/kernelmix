@@ -1,8 +1,8 @@
 # API reference
 
-Import with `import kernelmix as km`; inputs are NumPy arrays, with no pandas dependency. The [tutorial](tutorial.md) connects calls into an analysis, while the [model guide](methods.md) defines equations and maps paper symbols to API names.
+Use `import kernelmix as km` and supply inputs as NumPy arrays; pandas is not required. The [tutorial](tutorial.md) shows how the calls form an analysis. The [model guide](methods.md) defines the equations and maps their symbols to API names.
 
-An exposure profile is one row of exposure values. A posterior draw is one sampled set of fitted parameter values, combining data and priors. Prediction and contrast objects retain joint draws across profiles.
+An exposure profile is one row of exposure values. Each posterior draw is a set of parameter values sampled from the distribution given the data and priors. Prediction and contrast objects retain draws jointly across profiles, preserving their dependence.
 
 ## Fitting
 
@@ -20,9 +20,7 @@ km.fit(
 )
 ```
 
-Returns `BKMRFit`, or its `StructuredFit` subclass when a structured option is selected.
-[Structured models](structured.md) defines the additional inputs, priors, shapes
-and predictions.
+`fit` returns a `BKMRFit` object. Selecting a structured option returns its `StructuredFit` subclass; the [structured-model guide](structured.md) defines the additional inputs, priors, array shapes and predictions.
 
 | Family | Required outcome inputs | Mean or probability |
 | --- | --- | --- |
@@ -53,7 +51,7 @@ constant baseline hazard. Family-specific arguments are rejected elsewhere.
 | `initial` | Shared starting values; omitted entries use defaults. See [initialization](#initialization). |
 | `proposal_scales` | Fixed positive log-scale proposal standard deviations (SDs), default `0.3`. All routes accept `r` and `lambda`; default clustered fits add `cluster_lambda`, NB2 adds `dispersion`, and structured survival adds `baseline_hazard`. |
 
-Adjustment columns must be linearly independent, with fewer columns than retained rows. Default probit fits reject complete or quasi-complete separation, where covariates separate outcome classes, possibly with observations on the boundary. A flat coefficient prior can then yield a posterior with infinite total probability. Structured fits use a proper normal prior.
+Adjustment columns must be linearly independent, with fewer columns than retained rows. Default probit fits reject complete or quasi-complete separation, where covariates separate outcome classes, possibly with observations on the boundary. With the default flat coefficient prior, the unnormalized posterior density can then have an infinite integral. Structured fits use a proper normal prior.
 
 For computation, dense fitting uses $O(n^2)$ memory and $O(n^3)$ matrix operations, where $n$ is the retained observation count. Finite GP bases reduce this cost, but correlated residual blocks may remain dense.
 
@@ -82,11 +80,11 @@ km.Prior(
 )
 ```
 
-Prior fields use different parameterizations. `r_distribution` accepts `"gamma"`, `"unif"` or `"invunif"`; inverse-uniform bounds apply to `1/r` for active exposures, while excluded exposures have `r=0`. Relevance and amplitude gamma priors use mean/SD fields; dispersion and baseline gamma priors use shape/rate. Residual variance uses inverse-gamma shape/rate, and inclusion probabilities use a beta prior. See the [prior definitions](methods.md#priors-and-exposure-selection).
+Check each prior's parameterization when setting its fields. `r_distribution` accepts `"gamma"`, `"unif"` or `"invunif"`; inverse-uniform bounds apply to `1/r` for active exposures, while excluded exposures have `r=0`. Relevance and amplitude gamma priors use mean/SD fields; dispersion and baseline gamma priors use shape/rate. Residual variance uses inverse-gamma shape/rate, and inclusion probabilities use a beta prior. See the [prior definitions](methods.md#priors-and-exposure-selection).
 
 For the default count/survival sampler, `prior=None` uses `lambda_mean=1`, `lambda_sd=.5`,
 `cluster_lambda_mean=1`, `cluster_lambda_sd=.5`; the other fields retain their
-listed defaults. A dictionary overlays family defaults. A `Prior` object supplies
+listed defaults. A dictionary changes the supplied fields and keeps the family's other defaults. A `Prior` object supplies
 all its values explicitly, including its listed amplitude defaults. `beta_sd`
 controls the proper coefficient prior for count/survival. Dispersion and baseline
 parameters use gamma shape/rate. [Structured priors](structured.md#structured-priors)
@@ -125,7 +123,7 @@ extracted samples are independent copies.
 | `km.BKMRFit.load(path, *, max_bytes=512 * 1024 * 1024)` | Load and validate an archive, limiting total uncompressed member size. |
 | `km.diagnose(values)` | Diagnostics for one finite scalar-parameter array shaped `(chains, draws)`. |
 
-To interpret summaries, an equal-tailed interval leaves equal posterior probability below and above its limits. A PIP is the fraction of draws including an exposure or group. R-hat compares chains; bulk/tail effective sample sizes account for draw dependence in the distribution's center/tails.
+The reported intervals are equal-tailed: the posterior probability below the lower limit equals that above the upper limit. A PIP is the fraction of draws including an exposure or group. R-hat compares chains; bulk/tail effective sample sizes account for draw dependence in the distribution's center/tails.
 
 Default-route saved parameters include `beta`, `r`, `lambda`, `sigma2`, `delta` and `pi`; its binary fits also retain `ystar`. Structured arrays are described in the [structured guide](structured.md). `delta` records exposure inclusion. `beta` includes the added intercept when fitted. No-selection fits store `pi=1`. Diagnostics cannot establish model validity; R-hat requires multiple chains and short or constant sequences can yield undefined diagnostics.
 
@@ -171,8 +169,7 @@ fit.predict_survival(
 km.plot_survival(prediction, row=0, ax=None)
 ```
 
-`random_intercepts` returns a `Prediction` in training-cluster order, or supplied
-label order. Known and unseen labels follow the policy below.
+`random_intercepts` returns a `Prediction` in training-cluster order, or in the supplied label order. The prediction rules for known and new clusters are described below.
 
 | Survival result | Meaning |
 | --- | --- |
@@ -200,9 +197,7 @@ supplied, preserving posterior covariance.
 For the default count/survival route, samples include `h` and auxiliary `latent_white`; negative-binomial
 fits also include `dispersion`; survival fits include `baseline_hazard`.
 Default-route clustered fits include `lambda_cluster`, and count/survival fits also retain `u`.
-Default Gaussian/probit random intercepts are integrated out while fitting and drawn
-conditionally by `random_intercepts`. `sigma2=1` is only a shared latent convention
-for count/survival and is omitted from their summaries. Saved white coordinates are internal standardized sampling variables tied to a matrix decomposition. Use saved `h` for prediction that can be transferred across platforms.
+Default Gaussian/probit fits integrate out random intercepts during parameter sampling; `random_intercepts` draws them conditionally afterward. Count/survival fits store `sigma2=1` for a consistent result format. It is not an estimated residual variance and is omitted from their summaries. Saved white coordinates are internal standardized sampling variables tied to a matrix decomposition. Use saved `h` for prediction that can be transferred across platforms.
 
 ## Exposure contrasts and curves
 
