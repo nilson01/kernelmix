@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path, PurePosixPath
 
 ROOT_FILES = {'README.md', 'LICENSE', 'NOTICE', 'CONTRIBUTING.md', 'CHANGELOG.md',
-              'CITATION.cff', 'pyproject.toml', 'MANIFEST.in', '.gitignore'}
+              'CITATION.cff', 'mkdocs.yml', 'pyproject.toml', 'MANIFEST.in', '.gitignore'}
 ROOT_DIRS = {'.github', 'docs', 'src', 'tests', 'tools'}
 FORBIDDEN = {'.tex', '.aux', '.log', '.npz', '.rds', '.rdata', '.zip', '.key', '.pem'}
 PATTERNS = [rb'/' + rb'Users/[^/\s]+/', rb'PRIVATE ' + rb'KEY-----', rb'gh[pousr]_[A-Za-z0-9]{30,}',

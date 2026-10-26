@@ -15,3 +15,5 @@ dist/
 *.tex
 /ozone-results/
 /ozone-figure.*
+
+/site/

@@ -5,18 +5,13 @@ It models how an outcome varies with several exposures together, allowing curved
 
 To handle different outcome types, the package combines this exposure function with continuous, binary, count or survival models. NumPy and SciPy handle fitting and prediction; R is not required.
 
-| Analysis | Functions |
+| Task | Start here |
 | --- | --- |
-| Fit outcomes | `fit`, `Prior`: Gaussian, probit, Poisson, negative binomial and piecewise-exponential survival |
-| Cluster observations | Random intercepts/slopes; Gaussian AR1, exponential or supplied residual correlations |
-| Model unequal residual variance | Gaussian variance regression and residual-variance prediction |
-| Choose how to represent the exposure function | Gaussian, Matérn 3/2 or rational-quadratic kernels; dense, predictive-process or random-Fourier bases |
-| Model survival records | Delayed entry, competing causes, known predictor histories and left/interval censoring |
-| Select exposures or exposure groups | `selection="component"` or `"group"`, posterior inclusion probabilities |
-| Inspect results | `summary`, `diagnostics`, `posterior_samples` |
-| Predict | `predict_h`, `predict`, `predict_survival`, `posterior_moments_h` |
-| Describe exposure associations | Overall, single-exposure and interaction contrasts; response curves and surfaces |
-| Plot | Chains, inclusion probabilities, exposure curves, survival curves, contrasts and surfaces |
+| Choose an outcome model and priors | [Models and assumptions](docs/methods.md) |
+| Fit, inspect, predict and compare exposures | [Analysis tutorial](docs/tutorial.md) |
+| Model clusters, kernels or detailed survival records | [Structured models](docs/structured.md) |
+| Find arguments and result fields | [API reference](docs/api.md) |
+| Check numerical evidence and limitations | [Evidence](docs/reproduction.md) |
 
 ## Install
 
@@ -67,18 +62,10 @@ The curve varies the first exposure with the second at its median, relative to t
 
 ## Documentation
 
-| Need | Guide |
-| --- | --- |
-| Run an analysis | [Tutorial](docs/tutorial.md), [observed ozone example](docs/airquality.md) |
-| Choose a model | [Equations and assumptions](docs/methods.md), [structured models](docs/structured.md) |
-| Find a function | [API reference](docs/api.md) |
-| Check the evidence | [Verified results and open gaps](docs/reproduction.md), [development checks](docs/development.md) |
-| Read offline | [Reference manual](docs/manual.pdf) |
-
-The guides explain how the exposure function, outcome distribution and cluster effects form a model. For larger datasets, finite bases reduce the cost of Gaussian process calculations, but they approximate the model and can change uncertainty. Group selection allows at most one active exposure per group, and survival models use a piecewise-exponential likelihood. Check the priors for the selected fitting route and assess model assumptions separately from sampling diagnostics.
+The [common questions](docs/faq.md) explain prediction scales, missing values, selection and diagnostics. The [observed ozone example](docs/airquality.md) includes source data and saved results. Download the [reference manual](docs/manual.pdf) for offline reading. Contributors can find [development checks](docs/development.md) separately.
 
 ## References and license
 
 [Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/kxu058) introduced BKMR for exposure-mixture analysis. [Bobb et al. (2018)](https://doi.org/10.1186/s12940-018-0413-y) described the R software and its binary-outcome extension. KernelMix implements these methods separately in Python and adds count and survival likelihoods, defined in the [model guide](docs/methods.md).
 
-We compared selected Gaussian and probit calculations, including random intercepts, with R [`bkmr`](https://cran.r-project.org/package=bkmr) 0.2.2 at fixed parameter values. These comparisons check numerical calculations; they do not establish agreement between fitted chains. See [NOTICE](NOTICE) for attribution and [LICENSE](LICENSE) for GPL-2.0-only terms.
+We compare selected Gaussian and probit posterior summaries and conditional calculations, including random intercepts, with installed R [`bkmr`](https://cran.r-project.org/package=bkmr) 0.2.2. The [evidence summary](docs/reproduction.md) records results and limits. See [NOTICE](NOTICE) for attribution and [LICENSE](LICENSE) for GPL-2.0-only terms.
