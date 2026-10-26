@@ -23,7 +23,11 @@ from .result import (
 
 @dataclass(frozen=True)
 class RandomCoefficientPrediction:
-    """Coefficient draws with axes (chain, draw, cluster label, coefficient)."""
+    """Random-intercept and slope draws with summaries for each cluster.
+
+    ``draws`` has axes (chain, saved draw, cluster label, coefficient).
+    Intervals apply to each coefficient separately.
+    """
 
     draws: np.ndarray
     mean: np.ndarray
@@ -51,7 +55,12 @@ class RandomCoefficientPrediction:
 
 @dataclass(frozen=True)
 class CompetingRiskPrediction:
-    """Cause-specific probabilities; draws have axes (chain, draw, row, time, cause)."""
+    """Probabilities of each cause occurring by each requested time.
+
+    These cumulative incidences account for the other competing causes.
+    ``draws`` has axes (chain, saved draw, row, time, cause). Intervals apply to
+    each row/time/cause separately.
+    """
 
     draws: np.ndarray
     mean: np.ndarray
@@ -87,11 +96,15 @@ class CompetingRiskPrediction:
 
 
 class StructuredFit(BKMRFit):
-    """Posterior results for kernels, GP bases, random coefficients and survival.
+    """Posterior results for kernel choices, GP bases and structured outcomes.
 
-    Stored ``lambda`` is the direct GP variance (Bobb's tau), including for
-    Gaussian outcomes. Default omitted cluster labels fix random effects at zero.
-    Delayed-entry latent priors describe the included entrant cohort.
+    A kernel defines similarity between exposure profiles. A Gaussian process
+    (GP) uses it to model the exposure function h. Stored ``lambda`` is the
+    direct GP variance tau from Bobb et al. (2015), including for Gaussian
+    outcomes. The default Gaussian/probit sampler instead stores tau/sigma2.
+    Omitting prediction cluster labels sets random effects to zero. With delayed
+    entry, latent predictors have priors for the included entrant cohort; this
+    does not recover the population distribution before entry.
     """
 
     def _basis(self):
@@ -416,7 +429,10 @@ class StructuredFit(BKMRFit):
         return cause - 1
 
     def for_cause(self, cause):
-        """A shared-data view for cause-specific h contrasts and relative hazards."""
+        """Return a view of h, relative hazards and contrasts for one cause.
+
+        Causes are numbered from one. The view shares stored data and samples.
+        """
         if self.family != "survival":
             raise ValueError("for_cause requires a survival fit")
         result = copy(self)
@@ -537,7 +553,11 @@ class StructuredFit(BKMRFit):
         return values
 
     def random_effects(self, cluster_new=None, *, probability=0.95, max_draws=None, seed=None):
-        """Joint random intercept/slope coefficients in supplied or training-label order."""
+        """Draw random intercept/slope coefficients for supplied or training labels.
+
+        Known labels use their saved coefficients; equal unseen labels share one new
+        coefficient vector per draw. Omitted labels use training-cluster order.
+        """
         if not self.settings["clustered"]:
             raise ValueError("random_effects requires a clustered fit")
         _probability(probability)
@@ -602,10 +622,11 @@ class StructuredFit(BKMRFit):
     def predict_residual_variance(
         self, Znew=None, *, variance_design_new=None, probability=0.95, max_draws=None
     ):
-        """Return marginal residual variance draws, sigma2*exp(V gamma).
+        """Return residual variance draws, sigma2*exp(V gamma), for Gaussian outcomes.
 
-        V is the variance design and gamma its coefficients. These draws exclude
-        uncertainty in the exposure function and random effects.
+        V is the variance design and gamma its coefficients. Residual variation is
+        outcome variation left after accounting for h, adjustment and random effects.
+        These draws exclude uncertainty in h and the random effects.
         """
         if self.family != "gaussian":
             raise ValueError("residual variance prediction requires Gaussian outcomes")
@@ -638,7 +659,15 @@ class StructuredFit(BKMRFit):
         correlation_cross=None,
         correlation_new=None,
     ):
-        """Conditional means or observations with explicit cluster/residual-process inputs."""
+        """Draw outcome means or observations with cluster and residual inputs.
+
+        Omitted cluster labels set random effects to zero. Known labels use saved
+        coefficients; equal unseen labels share new coefficients. ``latent`` returns
+        the predictor before the outcome transformation; ``response`` returns means,
+        probabilities or relative hazards. For correlated Gaussian residuals, known
+        cluster labels also allow prediction to use the recorded residual process;
+        observation draws include the remaining residual uncertainty.
+        """
         if kind not in ("mean", "observation") or scale not in ("response", "latent"):
             raise ValueError("invalid prediction kind or scale")
         if self.family != "gaussian" and any(
@@ -903,10 +932,11 @@ class StructuredFit(BKMRFit):
     ):
         """Return survival probabilities or cause-specific hazards for fixed profiles.
 
-        Curves condition on survival to ``entry``. Survival probabilities use
-        all fitted causes; hazards use the cause selected by ``for_cause``
-        (the first cause by default). The final baseline hazard extends beyond
-        the last cutpoint while each profile's predictors stay constant.
+        Curves describe subjects who survive to ``entry``. Survival probabilities
+        include all causes. A hazard is a cause-specific event rate among subjects
+        still at risk; it uses the cause selected by ``for_cause`` (the first cause
+        by default). Beyond the last cutpoint, the final baseline hazard continues
+        while each profile's predictors stay constant.
         """
         if kind not in ("survival", "hazard"):
             raise ValueError("kind must be survival or hazard")
@@ -939,11 +969,11 @@ class StructuredFit(BKMRFit):
         max_draws=None,
         seed=None,
     ):
-        """Return probabilities of failure from each cause by each requested time.
+        """Return the probability of each cause occurring by each requested time.
 
-        Probabilities condition on survival to ``entry`` and include all fitted
-        competing causes. ``cause=None`` returns all causes jointly; an integer
-        selects one cause, numbered from one.
+        Describe subjects who survive to ``entry`` and account for all competing
+        causes. ``cause=None`` returns all causes together; an integer selects one
+        cause, numbered from one.
         """
         _, f, _, t, _ = self._survival_draws(
             Znew,
@@ -990,10 +1020,13 @@ class StructuredFit(BKMRFit):
         max_draws=None,
         seed=None,
     ):
-        """Integrate supplied piecewise-constant paths; never extrapolate past their stop times.
+        """Predict survival along supplied exposure and covariate histories.
 
-        Returned row order follows first occurrence of subject_new. New cluster
-        labels are shared across path rows in each draw; omitted labels use zero.
+        Predictors stay constant within each supplied interval. Requested times may
+        not exceed the final stop; the last predictor row is never extended.
+        Output row order follows first occurrence of subject_new. Repeated new
+        cluster labels share one random-effect vector across intervals in each draw;
+        omitted labels set random effects to zero.
         """
         if kind not in ("survival", "hazard", "cumulative_incidence"):
             raise ValueError("invalid path prediction kind")

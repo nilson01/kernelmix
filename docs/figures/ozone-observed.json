@@ -1,0 +1,105 @@
+{
+  "description": "Observed ozone against solar radiation, wind, and temperature for the same 111 complete days used in the saved analysis. Each point is one day. Values are on their original scales, with no smoothing or adjustment for month.",
+  "alt_text": "Three scatter plots show ozone in parts per billion against solar radiation in Langleys, wind in miles per hour, and temperature in degrees Fahrenheit, for 111 complete days.",
+  "transformations": [
+    "Retain rows with nonmissing Ozone, Solar.R, Wind, and Temp.",
+    "Plot raw pairs on original scales; no jitter, aggregation, smoothing, or model adjustment."
+  ],
+  "inputs": {
+    "docs/data/airquality.csv": "2c30fd88f946fb033340b1058465fcf791944d031d3f1c6d653515b7be5a74b3",
+    "docs/data/airquality-provenance.json": "75f2c4bf88ca44e94c9d40f9eaf6fc35ee58326a6c36b1f2dcb0efb55908c8e6",
+    "docs/results/airquality/observations.csv": "4aa3b80d3f3c621e68eca9a3fe5a0f1e64cf5b9f516a64fa351d30c7655639ad"
+  },
+  "script_sha256": "2d4fcb5be8ec1527a3708fabfe38bdff520ccd86e5b3bc0b5e5445abe8432b9c",
+  "size_inches": [
+    7.2,
+    2.55
+  ],
+  "png_dpi": 450,
+  "png_pixels": [
+    3240,
+    1147
+  ],
+  "background": "opaque white",
+  "pdf_fonttype": 42,
+  "versions": {
+    "python": "3.14.3",
+    "numpy": "2.5.4",
+    "matplotlib": "3.11.2"
+  },
+  "source_checks": {
+    "recorded": 153,
+    "complete": 111,
+    "missing_by_field": {
+      "Ozone": 37,
+      "Solar.R": 7,
+      "Wind": 0,
+      "Temp": 0,
+      "Month": 0,
+      "Day": 0
+    },
+    "month_counts": [
+      {
+        "month": 5,
+        "recorded": 31,
+        "complete": 24
+      },
+      {
+        "month": 6,
+        "recorded": 30,
+        "complete": 9
+      },
+      {
+        "month": 7,
+        "recorded": 31,
+        "complete": 26
+      },
+      {
+        "month": 8,
+        "recorded": 31,
+        "complete": 23
+      },
+      {
+        "month": 9,
+        "recorded": 30,
+        "complete": 29
+      }
+    ],
+    "source_hash_and_retained_rows_match": true,
+    "observed_ozone_and_source_rows_match": true,
+    "parameters": 10,
+    "diagnostics": 10,
+    "calendar_days_contiguous": true
+  },
+  "text_within_canvas": true,
+  "original_figures_sha256": {
+    "docs/figures/airquality.pdf": "cbce4b23c4ca85228a45e0a937843eeb72d3b4e5da33cbd09a659b69419a304a",
+    "docs/figures/airquality.png": "21771e68113900418213cf8b845dfe8c8cc069724945b2c502257917b2febc8b",
+    "docs/figures/count-survival.pdf": "2f99f9192ba5d8c46671f030a64853b7a242acf739eec4de7e9e8c3978bae91f",
+    "docs/figures/count-survival.png": "a4afaf9b6d709b2cc7b6252a880a817580ec33a86c46fde741d0d489c28b1fc4",
+    "docs/figures/response.pdf": "62ee272144d83e382e7e399157beec545789ae0fa8bdbdf8954f06d9d53e72aa",
+    "docs/figures/response.png": "711d7816c384b399264d84107588bf6a23afc6d159c2c45f452b8704b15cb1cd"
+  },
+  "outputs_sha256": {
+    "pdf": "0604cac17110bce34605a50af23d22e9befff73d9a77ba1a5ad08eebc535ab81",
+    "png": "450869edfd0588e5696156e5558ad39759d5f9cec02307ec8d15fff8d6b44577",
+    "csv": "be4affee021a933ed87185a136109c9336fdc35119f7698ad7cf9113ff929ebc"
+  },
+  "scope": "Presentation of saved tables only; no model fitting or posterior recomputation.",
+  "publisher_requirements": "Nature-inspired presentation only. Live research-figure guidance was inspected on 2026-10-25; final-submission compliance remains unverified.",
+  "export_style": {
+    "name": "Nature-inspired compact full-width",
+    "width_mm": 182.88,
+    "font_size_pt": 8.2,
+    "axes_width_pt": 0.5,
+    "source_preset": "scientific-visualization/assets/nature.mplstyle",
+    "source_preset_sha256": "f37a361cdda8846da0794fd879cc8173402094f110239d57e0227fdd8299a4f6",
+    "preset_snapshot": "2026-10-01; visual guidance, not compliance certification",
+    "live_guide_url": "https://research-figure-guide.nature.com/figures/preparing-figures-our-specifications/",
+    "guide_inspected": "2026-10-25",
+    "live_guide_snapshot_sha256": "c5695036b282db8bda05eb11cbe113d85c0d4d3a9c355cda2aab7e1e7e33e6d8",
+    "adaptations": "8.2 pt body and 8.5 pt panels for documentation readability; Nature body guidance is 5\u20137 pt and panels 8 pt",
+    "background_grids": false,
+    "bar_hatching": false
+  }
+}

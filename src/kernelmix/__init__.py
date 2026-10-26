@@ -1,4 +1,11 @@
-"""Bayesian kernel machine regression for exposure mixtures."""
+"""Bayesian kernel machine regression (BKMR) for exposure mixtures.
+
+The exposure function h describes how an outcome varies with an exposure
+profile z, allowing nonlinear associations and interactions. Linear adjustment
+uses covariates x and coefficients beta. These are associations; fitting alone
+does not identify causal effects. Posterior draws describe uncertainty after
+using the training data.
+"""
 from ._basis import kernel_matrix
 from ._kernel import gaussian_kernel
 from .diagnostics import diagnose

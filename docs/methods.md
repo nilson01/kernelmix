@@ -2,7 +2,7 @@
 
 ## Continuous outcomes
 
-Following [Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/kxu058),
+Following [Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/kxu058), we separate the exposure function from linear adjustment for other measured variables:
 
 $$
 Y_i=h(\mathbf z_i)+\mathbf x_i^{\mathsf T}\boldsymbol\beta+\epsilon_i,
@@ -11,8 +11,8 @@ $$
 
 Here, $Y_i$ is the outcome, $\mathbf z_i$ contains the $M$ exposures,
 $\mathbf x_i$ contains adjustment covariates, and $\boldsymbol\beta$ contains
-their coefficients. The function $h$ allows nonlinear exposure associations
-and interactions. Its prior at the observed exposure profiles is
+their coefficients. The error $\epsilon_i$ is independent normal noise with variance $\sigma^2$. The function $h$ allows curved exposure associations
+and interactions, where the association with one exposure depends on another. An exposure profile is a row of exposure values. A Gaussian process (GP) prior describes how values of $h$ vary together across profiles before using the outcome data. At the observed profiles, this prior is
 
 $$
 \mathbf h=(h_1,\ldots,h_n)^{\mathsf T}\sim N(\mathbf0,\tau\mathbf K_{Z,\mathbf r}),
@@ -21,10 +21,20 @@ K(\mathbf z,\mathbf z';\mathbf r)=
 \exp\left\{-\sum_{m=1}^{M}r_m(z_m-z'_m)^2\right\}.
 $$
 
-The relevance parameters $r_m\geq0$ determine how each exposure changes the
-kernel. An exposure with $r_m=0$ does not affect $h$. In the default marginalized Gaussian sampler,
+Here $h_i=h(\mathbf z_i)$, $n$ is the observation count, $\tau$ controls prior variation in $h$, and $\mathbf K_{Z,\mathbf r}$ is the matrix of kernel values between observed profiles. The kernel measures similarity between profiles. The relevance parameters $r_m\geq0$ determine how strongly each exposure changes that similarity. An exposure with $r_m=0$ does not affect $h$. In the default marginalized Gaussian sampler,
 `lambda` is $\lambda=\tau/\sigma^2$. Integrating out $\mathbf h$ gives
-covariance $\sigma^2(\mathbf I+\lambda\mathbf K_{Z,\mathbf r})$.
+covariance $\sigma^2(\mathbf I+\lambda\mathbf K_{Z,\mathbf r})$. Here $\mathbf I$ is the identity matrix. Integrating out $\mathbf h$ means accounting for its distribution without sampling each of its values during parameter fitting.
+
+The code uses the following names for the paper's quantities. The meaning of `lambda` depends on the fitting route.
+
+| Paper quantity | Meaning | API name |
+| --- | --- | --- |
+| $\mathbf z_i$, $\mathbf x_i$ | Exposure and adjustment rows | Rows of `Z` and `X` |
+| $h$, $\boldsymbol\beta$ | Exposure function and adjustment coefficients | `predict_h`, `beta` |
+| $\sigma^2$, $r_m$ | Residual variance and exposure relevance | `sigma2`, `r` |
+| $\tau$ | GP covariance amplitude | Default Gaussian/probit: `lambda` stores $\tau/\sigma^2$; structured and default count/survival: it stores $\tau$ directly |
+
+The [structured guide](structured.md) defines its separate priors. Equal numerical values of `lambda` need not describe the same covariance across these routes.
 
 ## Binary outcomes
 
@@ -35,11 +45,11 @@ $$
 \Phi\{h(\mathbf z_i)+\mathbf x_i^{\mathsf T}\boldsymbol\beta\}.
 $$
 
-Here $\Phi$ is the standard normal cumulative distribution function. Residual
-variance on the latent normal scale is fixed at one. This extension follows
+Here $\Phi$ is the standard normal cumulative distribution function. The latent normal scale is the underlying normal variable whose threshold determines the binary outcome. Its residual
+variance is fixed at one. This extension follows
 [Bobb et al. (2018)](https://doi.org/10.1186/s12940-018-0413-y).
 Probability contrasts depend on both exposure profiles and adjustment covariates.
-They are not odds ratios. The default sampler rejects separated linear adjustment designs because its flat coefficient prior can give an improper posterior. Structured fits use a proper normal coefficient prior.
+They are not odds ratios. The default sampler rejects complete or quasi-complete separation: adjustment covariates that separate the outcome classes, possibly with some observations on the separating boundary. With a flat coefficient prior, the posterior can then fail to have finite total probability. Structured fits use a proper normal coefficient prior, a distribution with total probability one.
 
 ## Count outcomes
 
@@ -74,9 +84,9 @@ $$
 S_i(t)=\exp\{-\Lambda_0(t)\exp(\eta_i)\}.
 $$
 
-Here $\lambda_0(t)$ is the baseline hazard and $\Lambda_0(t)$ its integral.
+A hazard is the instantaneous event rate among subjects still event-free. Here $\lambda_0(t)$ is the baseline hazard, $\Lambda_0(t)$ is its integral, and $S_i(t)$ is the probability of remaining event-free through time $t$.
 The linear predictor $\eta_i$ is defined above without a count offset.
-Independent right censoring gives likelihood contribution
+The indicator $d_i$ is one for an observed event and zero when follow-up ends first (right censoring). Under independent right censoring, the likelihood contribution is
 $\{\lambda_i(t_i)\}^{d_i}S_i(t_i)$.
 The model uses constant baseline rates $\lambda_{0j}$ within fixed,
 right-closed intervals. If $D_{ij}$ is subject $i$'s time in interval $j$,
@@ -100,8 +110,7 @@ This is a full piecewise-exponential event-time likelihood, not Cox partial
 likelihood. See the [INLA manual, section 3.15](https://inla.r-inla-download.org/r-inla.org/doc/inla-manual/inla-manual.pdf)
 for the model form and the [Stan survival guide](https://mc-stan.org/docs/stan-users-guide/survival.html)
 for censoring contributions. KernelMix uses its own independent gamma baseline
-prior. Cutpoints are conditioned on after selection; their uncertainty is not
-modeled. Defaults use event-time deciles, so assess sensitivity to their number
+prior. Once selected, the time cutpoints are held fixed. The model does not include uncertainty from choosing them. Defaults use event-time deciles, so assess sensitivity to their number
 and placement. Baseline priors depend on the chosen time unit.
 
 The likelihood above describes the default right-censored model. The
@@ -133,15 +142,13 @@ The random-intercept model follows the Gaussian/probit extension described by
 [Bobb et al. (2018)](https://doi.org/10.1186/s12940-018-0413-y).
 KernelMix also combines these intercepts with count and survival likelihoods.
 
-Known-cluster prediction conditions on the cluster posterior. Equal unseen labels
-share a new Gaussian draw. Omitted labels fix $u=0$; this is not marginalization
-over the cluster distribution. Random intercepts do not provide arbitrary serial
-correlation or cluster-robust inference. GP and cluster variance components can
-be weakly separated, particularly for constant kernels or singleton clusters.
+Prediction for a known cluster uses its fitted random intercept. Equal unseen labels
+share a new Gaussian draw. Omitted labels fix $u=0$; this differs from averaging predictions over the distribution of cluster effects. Random intercepts do not provide arbitrary serial
+correlation or cluster-robust inference. The data may provide little information to distinguish GP variation from cluster variation, particularly for constant kernels or clusters with only one observation.
 
 ## Priors and exposure selection
 
-Default Gaussian/probit priors follow R `bkmr` 0.2.2. The [structured guide](structured.md) defines its separate priors. Gamma distributions below use shape and **rate**. The inverse-gamma density is proportional to
+Default Gaussian/probit priors follow R `bkmr` 0.2.2. The [structured guide](structured.md) defines its separate priors. A prior describes parameter values before using the outcome data. Gamma distributions below use shape and **rate**. The inverse-gamma density is proportional to
 $(\sigma^2)^{-a-1}\exp(-b/\sigma^2)$ for shape $a$ and parameter $b$.
 
 | Quantity | Default |
@@ -157,16 +164,14 @@ $\lambda,\lambda_u\sim\mathrm{Gamma}(4,4)$, independent
 $\boldsymbol\beta\sim N(\mathbf0,25\mathbf I)$,
 $\phi\sim\mathrm{Gamma}(2,0.1)$ for NB2, and
 $\lambda_{0j}\sim\mathrm{Gamma}(0.1,0.1)$ for survival.
-At fixed finite predictor values, these defaults give finite first and second
-prior-predictive moments of the count mean and relative hazard. A supplied `Prior` is used as specified. A partial dictionary overlays
+At fixed finite predictor values, the resulting prior distributions of the count mean and relative hazard have finite means and second moments. A supplied `Prior` is used as specified. A partial dictionary overlays
 the selected family's defaults, for example `prior={"r_distribution": "gamma"}`.
 Warnings identify supplied amplitude or dispersion priors for which these moment
 guarantees do not hold. Assess prior sensitivity; large finite moments can still
 be numerically unstable. `sigma2=1` is a storage convention for count/survival fits and is omitted from
 their summaries.
 
-The inverse-uniform relevance prior has an unbounded upper tail. A finite-chain
-average of $r_m$ does not imply that its posterior expectation exists. Inspect
+The inverse-uniform relevance prior has an unbounded upper tail. An average from a finite sampling run can be calculated even when the posterior mean of $r_m$ does not exist. Inspect
 quantiles and mixing; assess prior sensitivity for the application.
 `Prior(r_distribution="gamma")` and `"unif"` provide other positive priors.
 The gamma parameters use mean and standard deviation. Uniform bounds apply to
@@ -198,24 +203,22 @@ original row indices are stored in `result.data["rows"]`. Complete-case fitting 
 caused by missing data. Covariates must be numeric; categorical encoding is the
 caller's responsibility.
 
-Chains run sequentially with separate random streams. `draws` counts saved draws
-per chain after `warmup`; `thin` controls the spacing of saved states. Proposals
+A chain is one sampling run through the posterior distribution, which combines the data and priors. Chains run sequentially with separate random streams. `draws` counts saved draws
+per chain after `warmup`; `thin` controls the spacing of saved draws. Proposals
 are fixed during sampling. `sampling_info` records acceptance counts and runtime.
-The default Gaussian sampler integrates out $h$ during parameter sampling. The default binary sampler also samples correlated, sign-constrained latent outcomes; its predictions condition on those saved latent outcomes.
+The default Gaussian sampler integrates out $h$ during parameter sampling. The default binary sampler also samples underlying normal outcomes constrained to be positive or negative according to the observed binary response. Predictions use those saved normal outcomes.
 
 Default count/survival fits sample a noncentered GP with
 [elliptical slice sampling](https://proceedings.mlr.press/v9/murray10a.html),
 log-scale Metropolis updates and conjugate baseline updates. Eigenvalues at most
 $100n\epsilon\max(1,\lambda_{\max}(\mathbf K))$, where $\epsilon$ is machine
-precision, define numerical null directions. No diagonal jitter is added.
-Prediction uses the same rank rule and the saved latent function. Saved auxiliary
-white coordinates may use different eigenvector signs on another platform;
-archive validation checks mathematical support rather than those signs.
+precision, are treated as zero in numerical calculations. Eigenvalues measure variation along matrix directions; very small ones cannot be distinguished reliably from zero at machine precision. No small constant is added to the kernel diagonal (diagonal jitter).
+Prediction uses the same rank rule and the saved latent function. Saved auxiliary white coordinates are internal, standardized sampling variables. Their eigenvector signs can differ across platforms without changing the represented function. Archive validation checks that values lie in the supported matrix directions rather than requiring identical signs.
 
 Structured fits instead sample the GP and other normal-prior coordinates jointly by elliptical slice sampling, with log-scale Metropolis updates for amplitudes, relevance, dispersion and survival baseline rates. Gaussian residual variance has a conditional inverse-gamma update. Their priors and covariance options are defined in the [structured guide](structured.md).
 
 Dense matrix factorization requires roughly cubic work in $n$ per parameter
-update. Working-memory checks reject oversized fitting or prediction requests;
+update: doubling the observation count can multiply this work by about eight. Working-memory checks reject oversized fitting or prediction requests;
 they are protective estimates, not a promise about peak process memory.
 
 ## Prediction and contrasts
@@ -228,23 +231,21 @@ Gaussian, binary and response-scale count predictions. Survival observation
 sampling is not implemented.
 The latent binary scale is the underlying normal scale.
 
-Contrasts subtract **joint** posterior draws so that covariance is retained.
+A contrast is a difference between fitted values. Contrasts subtract **joint** posterior draws, which contain predictions at all compared profiles together. This preserves how their uncertainty varies together.
 `overall_effect` compares all-exposure quantile profiles with a reference
 profile. `single_exposure_effects` changes one exposure while holding the others
 fixed. `interaction_effects` returns a difference of two single-exposure
 contrasts. Curves and surfaces vary one or two exposures; others are held fixed.
-Their intervals are equal-tailed, pointwise credible intervals, not simultaneous
-bands. On the response scale, adjustment covariates default to their retained
+Their equal-tailed intervals leave the same posterior probability below and above each interval. They describe uncertainty at individual points, not a simultaneous band for a whole curve. On the response scale, adjustment covariates default to their retained
 training means unless `X` supplies a different profile.
 
-Marginal quantile profiles may be uncommon in correlated data. Check exposure
-support before interpreting these contrasts. Causal interpretation requires
+A quantile profile combines a percentile chosen separately for each exposure. That combination may be uncommon when exposures are correlated. Check whether observed exposure rows are close to the requested combinations before interpreting contrasts. Causal interpretation requires
 additional identification assumptions; fitting a model does not supply them.
 
 ## Diagnostics and scope
 
 `diagnostics()` reports rank-normalized/folded split $\widehat R$, bulk effective
-sample size and tail effective sample size. Large $\widehat R$, small effective
+sample size and tail effective sample size. R-hat compares sampled distributions across parts of the chains; values near one are desirable. Effective sample size accounts for dependence between draws, in the main part (bulk) or extremes (tails) of the distribution. Large $\widehat R$, small effective
 sample sizes, or constant sampled traces need investigation. Fixed parameters
 are excluded from these diagnostics. Trace plots and sensitivity checks remain
 necessary; favorable diagnostics do not prove convergence.

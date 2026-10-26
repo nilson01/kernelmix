@@ -67,11 +67,14 @@ def _normal_draw(mean, covariance, rng):
 
 @dataclass(frozen=True)
 class Prediction:
-    """Joint posterior draws and pointwise equal-tailed intervals.
+    """Posterior predictions with intervals for each requested row.
 
-    ``draws`` has axes (chain, saved draw, prediction row). Covariance includes
-    posterior variation and the conditional GP uncertainty. Mean predictions
-    exclude observation noise; observation predictions include it.
+    ``draws`` has axes (chain, saved draw, prediction row). Rows are sampled
+    together so their dependence is retained. ``covariance`` is computed from
+    these joint draws. When h is predicted, its uncertainty at each saved state
+    is included. Mean predictions exclude new observation noise; observation predictions include it. Intervals
+    have equal posterior probability below and above their limits and apply to
+    each row separately.
     """
 
     draws: np.ndarray
@@ -108,7 +111,12 @@ def _prediction(draws, probability, scale, kind):
 
 @dataclass(frozen=True)
 class SurvivalPrediction:
-    """Joint draws (chains, draws, rows, times) and pointwise summaries."""
+    """Survival probabilities, hazards or cumulative incidences over time.
+
+    ``draws`` has axes (chain, saved draw, row, time). Intervals apply to each
+    row/time separately. A hazard is an event rate among those still at risk;
+    a cumulative incidence is the probability of a specified cause by a time.
+    """
     draws: np.ndarray
     mean: np.ndarray
     sd: np.ndarray
@@ -318,7 +326,10 @@ class BKMRFit:
                     yield f"{key}[{label}]", values[:, :, j]
 
     def summary_table(self, probability=0.95):
-        """Posterior mean, SD and pointwise equal-tailed credible limits."""
+        """Return parameter means, standard deviations and credible interval limits.
+
+        Each interval has equal posterior probability below and above its limits.
+        """
         probability = _probability(probability)
         tail = (1 - probability) / 2
         rows = []
@@ -348,7 +359,13 @@ class BKMRFit:
         return "\n".join(lines)
 
     def inclusion_probabilities(self):
-        """Return component PIPs, and group/conditional PIPs for grouped selection."""
+        """Return posterior inclusion probabilities (PIPs) for exposure selection.
+
+        An exposure PIP is the proportion of saved states where it is selected.
+        Group selection also returns the group's PIP and each exposure's PIP among
+        states where its group is selected. This conditional value is undefined
+        when the group is never selected.
+        """
         if self.settings.get("selection") == "none":
             raise ValueError("inclusion probabilities require a variable-selection fit")
         delta = self.samples["delta"].astype(bool)
@@ -366,7 +383,12 @@ class BKMRFit:
         return rows
 
     def diagnostics(self):
-        """Return rank/folded split R-hat, bulk/tail ESS, and diagnostic messages."""
+        """Return R-hat, effective sample sizes and sampling messages.
+
+        R-hat compares chains. Effective sample size accounts for dependence between
+        draws, using both the center and tails of their distribution. Favorable
+        values do not prove convergence.
+        """
         rows, messages = [], []
         for name, values in self._parameters():
             fixed = (name == "sigma2" and self.family == "binomial") or (
@@ -468,10 +490,12 @@ class BKMRFit:
         return result
 
     def predict_h(self, Znew=None, *, probability=0.95, max_draws=None, seed=None):
-        """Sample the joint GP exposure function on original exposure units.
+        """Draw the exposure function h at profiles supplied in original units.
 
-        Training standardization is reused. ``max_draws`` limits saved states per
-        chain by evenly spaced selection; it does not refit or extend the chain.
+        Draw all requested rows together to retain their dependence. Exclude linear
+        adjustment, random effects and observation noise. Training standardization
+        is reused. ``max_draws`` selects evenly spaced saved states per chain;
+        it does not refit or extend the chain.
         """
         _probability(probability)
         znew = self._new_exposures(Znew)
@@ -523,10 +547,11 @@ class BKMRFit:
         return values
 
     def random_intercepts(self, cluster_new=None, *, probability=.95, max_draws=None, seed=None):
-        """Joint random-intercept draws in training-level or supplied label order.
+        """Draw one random intercept per training cluster or supplied label.
 
-        Known clusters use their posterior; unseen labels share new intercepts
-        when equal. Row labels default to ``data['cluster_levels']``.
+        Known clusters use their posterior draws. Each unseen label receives a new
+        intercept; equal labels share it. Omitted labels use the training-cluster
+        order in ``data['cluster_levels']``.
         """
         if not self.settings.get("clustered", False):
             raise ValueError("random_intercepts requires a clustered fit")
@@ -561,13 +586,16 @@ class BKMRFit:
 
     def predict(self, Znew=None, Xnew=None, *, kind="mean", scale="response",
                 probability=0.95, max_draws=None, seed=None, offset=None, cluster_new=None):
-        """Joint mean/observation draws, with an explicit prediction-cluster policy.
+        """Draw outcome means or new observations at requested profiles.
 
-        Omitted ``cluster_new`` fixes the random intercept to zero; this is not
-        population marginalization. Known labels condition on their posterior;
-        unseen equal labels share a new random intercept. Count offsets are log
-        observation exposures. Survival means are relative hazards; use
-        ``predict_survival`` for survival or hazard curves.
+        ``scale='latent'`` returns the predictor before the outcome transformation,
+        such as probit or exponentiation. ``scale='response'`` returns outcome
+        means, probabilities or relative hazards.
+        Omitted ``cluster_new`` sets the random intercept to zero rather than
+        averaging over possible clusters. Known labels use their posterior;
+        equal unseen labels share one new intercept. Count offsets are log observation
+        exposures. Survival means are relative hazards, meaning hazard divided by
+        baseline hazard; use ``predict_survival`` for survival or hazard curves.
         """
         if kind not in ("mean", "observation") or scale not in ("response", "latent"):
             raise ValueError("kind must be mean/observation and scale response/latent")
@@ -627,10 +655,12 @@ class BKMRFit:
 
     def predict_survival(self, Znew=None, Xnew=None, *, times, kind="survival", cluster_new=None,
                          probability=.95, max_draws=None, seed=None):
-        """Pointwise survival probabilities or hazards for right-censored PH fits.
+        """Return survival probabilities or hazards for right-censored survival fits.
 
-        The final baseline interval extends beyond observed follow-up. Predictions
-        there rely on the constant final-hazard extrapolation assumption.
+        The proportional-hazards model multiplies a shared baseline hazard by each
+        profile's relative hazard. A hazard is an event rate among those still at
+        risk. Beyond observed follow-up, prediction extends the final constant
+        baseline hazard; that assumption needs scientific justification.
         """
         if self.family != "survival":
             raise ValueError("predict_survival requires a survival fit")
@@ -664,11 +694,13 @@ class BKMRFit:
         return _survival_prediction(values, times, probability, kind)
 
     def posterior_moments_h(self, Znew=None, max_draws=None):
-        """Integrate conditional GP moments over selected saved states.
+        """Return the mean and covariance of h averaged over selected saved states.
 
-        Uses the empirical-distribution (population) covariance of conditional
-        means. R's finite-sample exact-summary method uses sample covariance;
-        both converge to the same posterior moment as sampling error decreases.
+        At each state, average over the uncertainty in h given the training data.
+        Then combine these means and covariances across states, using the state
+        count as the denominator for their covariance. R's finite-sample exact
+        summary uses one less than that count. Both estimate the same posterior
+        moment as sampling error decreases.
         """
         znew = self._new_exposures(Znew)
         indices = self._indices(max_draws)

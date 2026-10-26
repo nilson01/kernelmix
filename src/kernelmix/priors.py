@@ -12,14 +12,19 @@ import numpy as np
 
 @dataclass(frozen=True)
 class Prior:
-    """Prior parameters for relevance, amplitudes and outcome models.
+    """Prior settings for exposure relevance, model variances and outcome models.
 
-    The ``*_mean`` and ``*_sd`` fields specify gamma means and standard
-    deviations. Other gamma priors use the named ``*_shape`` and ``*_rate``
-    fields.
+    A prior describes a parameter before the outcome data are used. Relevance r_m
+    controls how exposure m changes the kernel. Paired ``*_mean``/``*_sd``
+    fields give gamma means and standard deviations. ``beta_sd`` instead gives
+    the normal coefficient-prior standard deviation. ``*_shape``/``*_rate``
+    fields give gamma shape and rate; residual variance uses an inverse-gamma.
 
-    ``invunif`` means 1/r ~ Uniform(r_lower, r_upper); ``unif``
-    means r ~ Uniform(r_lower, r_upper). Excluded exposures have r=0.
+    ``invunif`` means 1/r_m ~ Uniform(r_lower, r_upper); ``unif`` means
+    r_m ~ Uniform(r_lower, r_upper). Excluded exposures have r_m=0.
+    For the default Gaussian/probit sampler, ``lambda`` is tau/sigma2;
+    for count/survival and structured samplers, it is the GP variance tau directly.
+    Here tau is the variance multiplying the kernel and sigma2 is residual variance.
     """
     r_distribution: str = 'invunif'
     r_mean: float = 5.0

@@ -11,7 +11,7 @@ python -m build
 python -m twine check dist/*
 ```
 
-CI builds a wheel and tests it outside the source checkout on Linux with Python
+The continuous integration (CI) configuration builds an installable wheel and tests it outside the source checkout on Linux with Python
 3.10 and 3.14, and Windows with Python 3.13. The minimum-dependency job pins
 NumPy 1.24.0, SciPy 1.10.0 and Matplotlib 3.7.0. See the repository's Actions
 results for the outcome on each commit; configuration alone does not establish
@@ -22,25 +22,22 @@ that a platform passed.
 | Check | Purpose and limit |
 | --- | --- |
 | Independent kernel and conditional-normal calculations | Check covariance, prediction and joint contrasts |
-| Installed R `bkmr` 0.2.2 | Compare constructed saved states for Gaussian and probit models, clustered/unclustered conditional moments, PIPs and prior densities |
-| Integrated Gaussian posterior | Compare sampled amplitude quantiles with one-dimensional quadrature after integrating out residual variance |
-| Probit orthant posterior | Compare sampled amplitude quantiles with the analytic two-observation normal orthant likelihood |
+| Installed R `bkmr` 0.2.2 | Compare constructed parameter states for Gaussian and probit models: means/covariances with those states fixed, with/without clusters, posterior inclusion probabilities (PIPs) and prior densities |
+| Integrated Gaussian posterior | Compare sampled amplitude percentiles with numerical integration over one variable, after accounting analytically for residual variance |
+| Probit orthant posterior | Compare sampled amplitude percentiles with an analytic likelihood for the signs of two underlying normal outcomes |
 | Uninformative selection case | Check the beta-binomial count distribution when exposure selection cannot change the kernel |
 | Count and survival likelihoods | Compare Poisson/NB2 mass with SciPy and survival density/censoring terms with independent arithmetic and interval splitting |
-| Elliptical slice posterior | Check a conjugate normal target |
-| Poisson scalar posterior | Compare a constant GP posterior with one-dimensional integration |
-| NB2 dispersion / survival baseline | Check conditional scalar/Gamma targets with other latent blocks held fixed; these are not joint-posterior studies |
+| Elliptical slice posterior | Check a normal posterior with a known exact answer |
+| Poisson scalar posterior | Compare the posterior of a constant exposure function with numerical integration over one variable |
+| NB2 dispersion / survival baseline | Check one-parameter/Gamma posterior distributions while other underlying model variables are held fixed; these do not check the full joint posterior |
 | Seeded compatibility with 0.1.0 | Saved arrays agree bitwise with 0.1.0 in six Gaussian/probit selection cases |
 | Diagnostic examples | Detect shifted chains, autocorrelation and constant traces |
-| Structured likelihoods | Independent kernel/spectral, Gaussian block-density, conditional residual and censoring/CIF/path identities |
+| Structured likelihoods | Independently check kernel and frequency calculations, joint Gaussian densities, residual predictions, censoring, cumulative incidence functions (CIFs) and predictor paths |
 | Structured posterior targets | Constant-GP Gaussian, Poisson and delayed-entry survival targets against independent integration; amplitude held fixed for these checks |
 | Finite-basis storage | Instrumented PP/RFF operations avoid training-size square matrices; this is not a large-dataset benchmark |
 | Package and input checks | Exercise saved objects, preprocessing, errors, distribution contents and installed examples |
 
-The posterior-target tests use fixed seeds and Monte Carlo tolerances based on
-effective sample size. They are small correctness checks, not a repeated-dataset
-performance study. No general coverage, paper-study reproduction or complete R
-API equivalence is claimed.
+The posterior tests compare sampling results with independently calculated answers. They use fixed seeds and tolerances that allow for sampling error based on effective sample size. These small checks do not establish performance across repeated datasets, general interval coverage, reproduction of the paper's studies or complete equivalence with the R API.
 
 ### Reproduce the R fixtures
 
@@ -58,7 +55,7 @@ python -m pytest tests/test_reference.py tests/test_clusters.py
 
 The exporters verify and record R/package versions. They call installed
 `ComputePostmeanHnew`, `ExtractPIPs`, and internal kernel/prior/covariance helpers.
-Fixtures contain **constructed states, not fitted R MCMC chains**, with explicit
+These fixture files contain **constructed parameter states, not fitted R sampling chains**, with explicit
 preprocessing and intercept columns. The R
 public summary API does not accept arbitrary new-cluster labels; Python h+u
 prediction is checked with an independent block-normal calculation. Count and
@@ -88,4 +85,4 @@ python tools/build_manual.py
 
 Pandoc and LaTeX build the PDF; intermediate TeX is temporary. The README figure
 uses short illustrative chains, with values in `docs/figures/response.csv`.
-Its pointwise intervals are not evidence of statistical calibration.
+Its intervals describe uncertainty at individual curve points. They do not show whether the intervals achieve their stated coverage across repeated datasets.

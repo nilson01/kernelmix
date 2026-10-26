@@ -39,11 +39,12 @@ def _response_label(result):
 
 
 def plot_trace(fit, parameter='lambda', indices=None, ax=None):
-    """Plot one sampled scalar per chain against saved draw number.
+    """Plot one parameter's saved draws for each chain.
 
-    ``indices`` indexes trailing parameter dimensions, e.g. ``indices=0`` for
-    beta's first coefficient. A nonscalar parameter requires explicit indices.
-    The trace contains retained draws only and does not establish convergence.
+    ``indices`` selects one component of an array-valued parameter. Use one
+    integer per parameter axis, for example ``indices=0`` for default-sampler
+    beta or ``indices=(0, 0)`` for structured beta. Only saved draws are shown;
+    warmup draws are excluded. A trace does not establish convergence.
     """
     values = np.asarray(fit.posterior_samples(parameter))
     if values.ndim < 2:
@@ -72,11 +73,12 @@ def plot_trace(fit, parameter='lambda', indices=None, ax=None):
 
 
 def plot_pips(fit, ax=None):
-    """Plot marginal exposure posterior inclusion probabilities on [0, 1].
+    """Plot each exposure's posterior inclusion probability (PIP) from zero to one.
 
-    Group selection also displays group posterior inclusion probability (PIP)
-    and within-group conditional PIP, with distinct marker shapes. These are three different quantities, not
-    uncertainty intervals. No-selection fits raise through the fit method.
+    A PIP is the proportion of saved states in which an exposure is selected.
+    Group selection also shows group PIPs and exposure PIPs among states where
+    the group is selected. Marker shapes distinguish these quantities; they are
+    probabilities, not uncertainty intervals. A selection fit is required.
     """
     rows = fit.inclusion_probabilities()
     if not rows:
@@ -96,11 +98,11 @@ def plot_pips(fit, ax=None):
 
 
 def plot_response(curve, ax=None):
-    """Plot original-unit curves with equal-tailed pointwise intervals.
+    """Plot exposure curves with a separate credible interval at each grid point.
 
-    Multiple exposure curves share an axis; use separate single-variable calls
-    when exposure units differ. Colors, line styles, markers and labels identify
-    each curve. The interval covers the conditional mean association.
+    Intervals have equal posterior probability below and above their limits.
+    Multiple exposures share one axis; use separate calls when their units
+    differ. Colors, line styles, markers and labels identify each curve.
     """
     if curve.kind != 'univariate':
         raise ValueError('plot_response requires a univariate_response result')
@@ -126,7 +128,7 @@ def plot_response(curve, ax=None):
 
 
 def plot_overall(effect, ax=None):
-    """Plot all-exposure quantile contrasts and pointwise posterior intervals."""
+    """Plot profile differences from overall_effect, with intervals at each quantile."""
     if effect.kind != 'overall':
         raise ValueError('plot_overall requires an overall_effect result')
     ax = _axis(ax)
@@ -144,10 +146,11 @@ def plot_overall(effect, ax=None):
 def plot_surface(surface, ax=None):
     """Plot a posterior mean surface; uncertainty remains in the result.
 
-    This is a two-dimensional color map, not a perspective rendering. Centered
-    surfaces use a zero-centered diverging scale; uncentered surfaces use a
-    sequential scale. The colorbar states explicitly that only the posterior
-    mean is displayed. Use result.lower/upper or to_records() for uncertainty.
+    The color map shows values over the two exposure grids. Centered surfaces
+    use different colors for negative and positive values, with zero at the
+    middle of the scale. Uncentered surfaces use one ordered color scale.
+    The colorbar labels the posterior mean. Use result.lower/upper or
+    to_records() for uncertainty.
     """
     if surface.kind != 'bivariate':
         raise ValueError('plot_surface requires a bivariate_response result')
@@ -173,7 +176,13 @@ def plot_surface(surface, ax=None):
 
 
 def plot_survival(prediction, row=0, ax=None):
-    """Plot a survival curve or evaluated hazards with pointwise credible intervals."""
+    """Plot survival, cumulative incidence or hazards with pointwise intervals.
+
+    Survival is the probability of no event by a time. Cumulative incidence is
+    the probability of a specified cause by a time, accounting for other causes.
+    Hazards are event rates among those still at risk and are plotted only at
+    evaluated times. Intervals apply to each time separately.
+    """
     if prediction.kind not in ('survival', 'hazard', 'cumulative_incidence') or prediction.mean.ndim != 2:
         raise ValueError('plot_survival requires a SurvivalPrediction')
     if isinstance(row, (bool, np.bool_)) or not isinstance(row, Integral) or not 0 <= row < prediction.mean.shape[0]:

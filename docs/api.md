@@ -1,6 +1,6 @@
 # API reference
 
-Import the public API with `import kernelmix as km`. Arrays are NumPy arrays; pandas is not required. Examples that connect these functions are in the [tutorial](tutorial.md).
+Import the public API with `import kernelmix as km`. Arrays are NumPy arrays; pandas is not required. Examples that connect these functions are in the [tutorial](tutorial.md). An exposure profile means one row of exposure values. A posterior draw is one sampled set of values from the fitted distribution, which combines data and priors. See the [model guide](methods.md) for equations and the mapping between paper symbols and API names.
 
 ## Fitting
 
@@ -40,7 +40,7 @@ constant baseline hazard. Family-specific arguments are rejected elsewhere.
 | --- | --- |
 | `y`, `Z`, `X` | Outcome vector, exposure matrix and optional adjustment matrix, with matching rows. Supply raw adjustment columns without an intercept when `intercept=True`. |
 | `family` | `"gaussian"`, `"binomial"` (probit), `"poisson"`, `"negative_binomial"` (NB2) or `"survival"` (piecewise-exponential proportional hazards). |
-| `draws`, `warmup`, `chains`, `thin` | Retained states per chain, discarded iterations, sequential chains and spacing between retained states. Total iterations per chain are `warmup + draws * thin`. At least two retained states are required. |
+| `draws`, `warmup`, `chains`, `thin` | Saved draws per chain, discarded iterations, sequential chains and spacing between saved draws. Total iterations per chain are `warmup + draws * thin`. At least two saved draws are required. |
 | `seed` | Nonnegative integer or `None`; uses local random generators without changing NumPy's global random state. |
 | `standardize` | Center exposures and divide by retained-training sample standard deviations. Constant exposures are invalid when this is enabled. |
 | `selection` | `"none"`, `"component"` or `"group"`. Group selection requires one `groups` label per exposure and permits at most one active exposure in each included group. |
@@ -51,10 +51,8 @@ constant baseline hazard. Family-specific arguments are rejected elsewhere.
 | `initial` | Shared starting values; omitted entries use defaults. See [initialization](#initialization). |
 | `proposal_scales` | Fixed positive log-scale proposal SDs, default `0.3`. All routes accept `r` and `lambda`; default clustered fits add `cluster_lambda`, NB2 adds `dispersion`, and structured survival adds `baseline_hazard`. |
 
-The adjustment design must have full column rank and fewer columns than retained
-rows. Default probit fits reject complete or quasi-complete separation under the
-flat coefficient prior; structured fits use a proper normal prior. Dense fitting
-uses quadratic memory and cubic matrix operations. Finite GP bases reduce that
+The adjustment columns must be linearly independent, with fewer columns than retained rows. Default probit fits reject complete or quasi-complete separation, where adjustment covariates separate the binary classes, possibly with some observations on the separating boundary. A flat coefficient prior can then give a posterior without finite total probability; structured fits use a proper normal prior, with total probability one. Dense fitting
+uses $O(n^2)$ memory and $O(n^3)$ matrix operations, where $n$ is the retained observation count. Finite GP bases reduce that
 cost, but correlated residual blocks may remain dense.
 
 ### Initialization
@@ -82,9 +80,9 @@ km.Prior(
 )
 ```
 
-`r_distribution` accepts `"gamma"`, `"unif"` and `"invunif"`. The inverse-uniform option places the uniform distribution on `1/r`, so its bounds apply to the reciprocal of an active relevance value. Excluded exposures have relevance zero. Relevance and amplitude gamma priors use mean/SD fields. Dispersion and baseline
+`r_distribution` accepts `"gamma"`, `"unif"` and `"invunif"`. The inverse-uniform option places the uniform distribution on `1/r`, so its bounds apply to the reciprocal of an active relevance value. Excluded exposures have relevance zero. Relevance and amplitude gamma priors use mean/standard-deviation (SD) fields. Dispersion and baseline
 gamma priors use shape/rate fields; Gaussian residual variance uses inverse-gamma
-shape/rate. Inclusion probabilities use a beta prior.
+shape/rate. Inclusion probabilities use a beta-distribution prior. A prior describes parameter values before using the outcome data. The [model guide](methods.md#priors-and-exposure-selection) defines these distributions and their parameters.
 
 For the default count/survival sampler, `prior=None` uses `lambda_mean=1`, `lambda_sd=.5`,
 `cluster_lambda_mean=1`, `cluster_lambda_sd=.5`; the other fields retain their
@@ -118,7 +116,7 @@ extracted samples are independent copies.
 
 | Method | Return and use |
 | --- | --- |
-| `fit.summary(probability=0.95)` | Text summary of parameter means, SDs, equal-tailed intervals, available PIPs and diagnostic messages. |
+| `fit.summary(probability=0.95)` | Text summary of parameter means, SDs, equal-tailed intervals, available posterior inclusion probabilities (PIPs) and diagnostic messages. |
 | `fit.summary_table(probability=0.95)` | List of dictionaries with `parameter`, `mean`, `sd`, `lower`, `upper`. |
 | `fit.posterior_samples(parameter=None, combine_chains=False)` | Dictionary of arrays, or one named parameter array. Leading axes are chain and retained draw; combining chains merges those axes. |
 | `fit.inclusion_probabilities()` | Exposure names and PIPs for selection fits. Group fits also return group PIP and within-group conditional PIP; the conditional value is undefined (`NaN`) if a group was never selected. Raises without selection. |
@@ -126,6 +124,8 @@ extracted samples are independent copies.
 | `fit.save(path)` | Save training data, settings and states in a compressed non-pickle archive. Replaces the destination atomically. |
 | `km.BKMRFit.load(path, *, max_bytes=512 * 1024 * 1024)` | Load and validate an archive, limiting total uncompressed member size. |
 | `km.diagnose(values)` | Diagnostics for one finite scalar-parameter array shaped `(chains, draws)`. |
+
+An equal-tailed interval leaves the same posterior probability below and above it. A PIP is the fraction of saved draws in which an exposure or group is included. R-hat compares chains; bulk and tail effective sample sizes account for dependence between draws in the main part and extremes of the distribution.
 
 Default-route saved parameters include `beta`, `r`, `lambda`, `sigma2`, `delta` and `pi`; its binary fits also retain `ystar`. Structured arrays are described in the [structured guide](structured.md). `delta` records exposure inclusion. `beta` includes the added intercept when fitted. No-selection fits store `pi=1`. Diagnostics cannot establish model validity; R-hat requires multiple chains and short or constant sequences can yield undefined diagnostics.
 
@@ -152,13 +152,13 @@ uses retained training rows.
 | `predict(..., kind="observation", scale="response")` | Gaussian, binary or count future observations; survival is unsupported. |
 | `predict(..., kind="mean", scale="latent")` | `h` plus linear adjustment and requested random effects, before link transformation; count offsets are included. Correlated Gaussian means also condition on training residuals. |
 | `predict(..., kind="observation", scale="latent")` | Gaussian outcomes or binary latent outcomes including residual noise; binary residual variance is one. Count/survival latent observation draws are unsupported. |
-| `posterior_moments_h` | Dictionary with deterministic integrated `mean` and `covariance` for `h`, averaging conditional moments over saved states. |
+| `posterior_moments_h` | Dictionary with deterministic integrated `mean` and `covariance` for `h`, averaging conditional moments over saved draws. |
 
 `max_draws` selects evenly spaced states **per chain** (at least two), without
 refitting. `seed` controls prediction draws. A `Prediction` stores `draws` shaped
 `(chains, selected_draws, rows)`, `mean`, `sd`, `lower`, `upper`, joint `covariance`,
 `probability`, `scale` and `kind`. `to_records()` gives one summary per row.
-Intervals are equal-tailed and pointwise; observation intervals include noise.
+Intervals are equal-tailed and pointwise: each describes uncertainty for one row, rather than for all rows at once. Observation intervals also include new outcome variation.
 
 ## Cluster and survival results
 
@@ -192,7 +192,7 @@ count observations are Poisson or NB2 draws. Latent count observations and survi
 observation draws are unsupported and raise an error.
 
 Omitted `cluster_new` sets random effects to zero, including for training
-predictions. Known labels use their posterior; unseen labels receive new Gaussian
+predictions. Known labels use their fitted cluster coefficients; unseen labels receive new Gaussian
 coefficients. Equal labels share a draw. `predict_h` excludes random effects.
 For slopes and residual conditioning, see [structured prediction](structured.md#separate-gaussian-variance-and-correlation). Default Gaussian/probit prediction samples `h + u` jointly when labels are
 supplied, preserving posterior covariance.
@@ -202,10 +202,11 @@ fits also include `dispersion`; survival fits include `baseline_hazard`.
 Default-route clustered fits include `lambda_cluster`, and count/survival fits also retain `u`.
 Default Gaussian/probit random intercepts are integrated out while fitting and drawn
 conditionally by `random_intercepts`. `sigma2=1` is only a shared latent convention
-for count/survival and is omitted from their summaries. Saved white coordinates
-refer to the sampler's eigensystem; use saved `h` for portable prediction.
+for count/survival and is omitted from their summaries. Saved white coordinates are internal standardized sampling variables tied to a matrix decomposition. Use saved `h` for prediction that can be transferred across platforms.
 
 ## Exposure contrasts and curves
+
+A contrast is a difference between predictions. A quantile profile combines a chosen percentile of each exposure's own observed distribution. For example, the all-median profile sets each exposure to its own median. Such a combination need not be common in the observed rows.
 
 ```python
 km.overall_effect(
@@ -248,7 +249,7 @@ km.interaction_effects(
 | --- | --- |
 | `overall_effect` | Each all-exposure quantile profile minus the all-exposure `reference` profile. Returns `EffectResult`. |
 | `univariate_response` | One named or zero-based indexed exposure, or all exposures with `variable=None`. Other exposures stay at `fixed_quantile`. Returns one joint `CurveResult`. |
-| `bivariate_response` | A Cartesian grid for two distinct exposures. Other exposures stay at `fixed_quantile`. Returns `SurfaceResult`. |
+| `bivariate_response` | Every combination of the supplied grid values for two distinct exposures. Other exposures stay at `fixed_quantile`. Returns `SurfaceResult`. |
 | `single_exposure_effects` | High-minus-low quantile contrast for each exposure at every background `fixed_quantiles` value. Returns `EffectResult`. |
 | `interaction_effects` | All unordered pairs from the selected names/indices, or all exposures by default. Returns `EffectResult`. For each pair the contrast is high/high - low/high - high/low + low/low, with other exposures fixed. |
 
@@ -268,8 +269,7 @@ With `center=True`, curves and surfaces subtract the **all-median** reference pr
 | Survival response | Differences in relative hazards, not hazard ratios or survival-probability differences |
 
 For response summaries, `X` is one raw adjustment vector and defaults to training
-covariate means. Transformations precede subtraction. Joint draws preserve
-covariance and exactly cancel identical profiles.
+covariate means. For each draw, predictions are transformed to the requested scale before subtraction. Joint draws keep all compared profiles together, preserving how their uncertainty varies together and exactly canceling identical profiles.
 
 Results store `draws` shaped `(chains, selected_draws, locations)`, `mean`, `sd`,
 `lower`, `upper`, `scale`, `probability`, `kind` and `metadata`. `locations` labels
@@ -278,8 +278,7 @@ profile draws to summaries. `to_records()` combines locations and summaries.
 `SurfaceResult` adds `variables`, `grids` and `shape`; reshape summaries to `shape`
 with the second grid changing fastest.
 
-These conditional associations require adequate exposure support. Their intervals
-do not account for unmeasured confounding or model misspecification.
+These summaries describe associations at the specified values of the other variables. Check that nearby exposure combinations occur in the data. The intervals do not account for unmeasured confounding or a wrongly specified model.
 
 ## Plotting
 

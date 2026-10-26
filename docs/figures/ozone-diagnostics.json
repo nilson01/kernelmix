@@ -1,0 +1,116 @@
+{
+  "description": "Saved sampling diagnostics for all ten parameters. R-hat compares within-chain and between-chain variation using rank-normalized and folded split chains. Bulk effective sample size (ESS) summarizes sampling efficiency for the main distribution; tail ESS uses the smaller 5% and 95% indicator-tail estimate. Here lambda = tau/sigma^2, where tau is the kernel variance amplitude and sigma^2 is the error variance; r denotes exposure kernel relevance and beta denotes regression coefficients. These diagnostics do not establish convergence or validate model assumptions.",
+  "alt_text": "Aligned dot plots show rank-normalized split R-hat, bulk effective sample size, and tail effective sample size for all ten saved parameters. Bulk and tail panels share the same scale.",
+  "transformations": [
+    "Display all ten diagnostics.csv rows, preserving source order and values.",
+    "Use separate R-hat, bulk ESS, and tail ESS axes; show 1 as a reference for R-hat, without a pass/fail threshold."
+  ],
+  "inputs": {
+    "docs/results/airquality/diagnostics.csv": "4dce96c9f880710a3f8a32b352a2d92f791c9a7c5d62ae0f7a1b56b8dc78e82b"
+  },
+  "script_sha256": "2d4fcb5be8ec1527a3708fabfe38bdff520ccd86e5b3bc0b5e5445abe8432b9c",
+  "size_inches": [
+    7.2,
+    3.8
+  ],
+  "png_dpi": 450,
+  "png_pixels": [
+    3240,
+    1710
+  ],
+  "background": "opaque white",
+  "pdf_fonttype": 42,
+  "versions": {
+    "python": "3.14.3",
+    "numpy": "2.5.4",
+    "matplotlib": "3.11.2"
+  },
+  "source_checks": {
+    "recorded": 153,
+    "complete": 111,
+    "missing_by_field": {
+      "Ozone": 37,
+      "Solar.R": 7,
+      "Wind": 0,
+      "Temp": 0,
+      "Month": 0,
+      "Day": 0
+    },
+    "month_counts": [
+      {
+        "month": 5,
+        "recorded": 31,
+        "complete": 24
+      },
+      {
+        "month": 6,
+        "recorded": 30,
+        "complete": 9
+      },
+      {
+        "month": 7,
+        "recorded": 31,
+        "complete": 26
+      },
+      {
+        "month": 8,
+        "recorded": 31,
+        "complete": 23
+      },
+      {
+        "month": 9,
+        "recorded": 30,
+        "complete": 29
+      }
+    ],
+    "source_hash_and_retained_rows_match": true,
+    "observed_ozone_and_source_rows_match": true,
+    "parameters": 10,
+    "diagnostics": 10,
+    "calendar_days_contiguous": true
+  },
+  "text_within_canvas": true,
+  "original_figures_sha256": {
+    "docs/figures/airquality.pdf": "cbce4b23c4ca85228a45e0a937843eeb72d3b4e5da33cbd09a659b69419a304a",
+    "docs/figures/airquality.png": "21771e68113900418213cf8b845dfe8c8cc069724945b2c502257917b2febc8b",
+    "docs/figures/count-survival.pdf": "2f99f9192ba5d8c46671f030a64853b7a242acf739eec4de7e9e8c3978bae91f",
+    "docs/figures/count-survival.png": "a4afaf9b6d709b2cc7b6252a880a817580ec33a86c46fde741d0d489c28b1fc4",
+    "docs/figures/response.pdf": "62ee272144d83e382e7e399157beec545789ae0fa8bdbdf8954f06d9d53e72aa",
+    "docs/figures/response.png": "711d7816c384b399264d84107588bf6a23afc6d159c2c45f452b8704b15cb1cd"
+  },
+  "outputs_sha256": {
+    "pdf": "6be6e28f3f393c3a41334a8d8cf4ccdc92036f26fce90ea99ff2087bfddb47ef",
+    "png": "5f24004d03cdd68d8fe7696963a2203d72458bf5438dd6f6217d8f4528190a14"
+  },
+  "scope": "Presentation of saved tables only; no model fitting or posterior recomputation.",
+  "publisher_requirements": "Nature-inspired presentation only. Live research-figure guidance was inspected on 2026-10-25; final-submission compliance remains unverified.",
+  "export_style": {
+    "name": "Nature-inspired compact full-width",
+    "width_mm": 182.88,
+    "font_size_pt": 8.2,
+    "axes_width_pt": 0.5,
+    "source_preset": "scientific-visualization/assets/nature.mplstyle",
+    "source_preset_sha256": "f37a361cdda8846da0794fd879cc8173402094f110239d57e0227fdd8299a4f6",
+    "preset_snapshot": "2026-10-01; visual guidance, not compliance certification",
+    "live_guide_url": "https://research-figure-guide.nature.com/figures/preparing-figures-our-specifications/",
+    "guide_inspected": "2026-10-25",
+    "live_guide_snapshot_sha256": "c5695036b282db8bda05eb11cbe113d85c0d4d3a9c355cda2aab7e1e7e33e6d8",
+    "adaptations": "8.2 pt body and 8.5 pt panels for documentation readability; Nature body guidance is 5\u20137 pt and panels 8 pt",
+    "background_grids": false,
+    "bar_hatching": false
+  },
+  "diagnostic_ranges": {
+    "rhat": [
+      1.0001085299948365,
+      1.0053180766630676
+    ],
+    "ess_bulk": [
+      885.1040097427164,
+      38833.723183038535
+    ],
+    "ess_tail": [
+      1193.0767718016448,
+      68403.68484029052
+    ]
+  }
+}
