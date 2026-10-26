@@ -1,14 +1,10 @@
 # Structured models and Gaussian process approximations
 
-These options change how the exposure function, cluster effects, residual errors or survival records are modeled. A Gaussian process (GP) describes how exposure-function values vary together. A finite GP basis represents that function with a limited set of terms. Selecting one returns
-a `StructuredFit`, with the priors defined below. A prior describes parameter values before using the outcome data. The exposure model follows
-[Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/kxu058) and the
-[2018 extension](https://doi.org/10.1186/s12940-018-0413-y); the additional
-structures have separate definitions.
+Start with the exposure function and outcome model in the [model guide](methods.md). A Gaussian process (GP) relates function values at different exposure profiles. The options here change four separate components: the exposure kernel, its computational representation, observation dependence, or event-time records. They return `StructuredFit` and use the priors below.
 
-Run these blocks in order. Their eight observations and four warmup/saved draws
-per chain illustrate the interface. For inference, use longer runs, sampling
-diagnostics, checks with other reasonable priors, and checks that requested exposure combinations are represented in the data.
+The exposure formulation follows [Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/kxu058) and the [2018 extension](https://doi.org/10.1186/s12940-018-0413-y). Additional structures have separate definitions.
+
+Run the blocks in order. Eight observations and four warmup/saved draws per chain illustrate the interface. For inference, use longer chains, sampling diagnostics, prior-sensitivity checks and exposure profiles supported by the data.
 
 ```python
 import numpy as np
@@ -30,7 +26,7 @@ standardization. Adjustment and random-slope inputs exclude the added intercept.
 
 ## Choose an exposure kernel
 
-An exposure profile is one row of exposure values. For two profiles $\mathbf z$ and $\mathbf z'$, with $M$ exposures and relevance parameters $r_m$, define
+The kernel relates exposure profiles (rows of exposure values). For profiles $\mathbf z$ and $\mathbf z'$ with $M$ exposures and relevance parameters $r_m$, define
 
 $$q(\mathbf z,\mathbf z')=\sum_{m=1}^{M}r_m(z_m-z'_m)^2,\qquad r_m\geq0.$$
 
@@ -53,7 +49,7 @@ rq = km.fit(y, Z, X, kernel="rational_quadratic", kernel_alpha=1.5, **demo)
 curve = km.univariate_response(matern, variable=0, points=5, seed=48)
 ```
 
-Structured fits store `lambda` as the **direct GP covariance amplitude**, corresponding to Bobb's $\tau$: $\mathbf h\sim N(\mathbf0,\tau\mathbf K)$. This also applies to structured Gaussian fits. The default Gaussian sampler instead stores the ratio $\tau/\sigma^2$. Selecting a structured model therefore changes its prior specification as well as its covariance options. Exposure contrasts describe conditional associations; causal interpretation requires additional assumptions.
+Kernel choice also affects the fitting route and its priors. For exposure-function values $\mathbf h$ at observed profiles, structured fits store `lambda` as the direct GP amplitude $\tau$ in $\mathbf h\sim N(\mathbf0,\tau\mathbf K)$, including Gaussian fits. Default Gaussian fits store $\tau/\sigma^2$. Compare priors on these stated scales. Exposure contrasts remain conditional associations, requiring additional assumptions for causal interpretation.
 
 ### Structured priors
 
@@ -71,7 +67,7 @@ intercepts, not structured random coefficients.
 
 ## Reduce GP matrix size
 
-`approximation="dense"` uses the full kernel. `"pp"` uses a predictive process: it represents the function through values at a smaller set of exposure profiles called knots. `"rff"` uses random Fourier features, a fixed set of sine and cosine terms that approximate the kernel.
+Kernel choice specifies similarity; approximation controls how the Gaussian process (GP) is represented. `"dense"` uses the full kernel. `"pp"` represents $h$ through values at a smaller set of exposure profiles (knots). `"rff"` uses fixed sine/cosine features to approximate the kernel.
 
 ```python
 pp = km.fit(y, Z, X, kernel="matern32", approximation="pp",
@@ -90,7 +86,7 @@ During fitting, PP/RFF use observation-by-feature and feature-by-feature matrice
 
 ## Model random intercepts and slopes
 
-`cluster` identifies observation groups; exposure-selection `groups` has a separate meaning. `random_slopes` adds columns after the random intercept. All five outcome families support these coefficients.
+For repeated observations, cluster effects can supplement the shared exposure function. `cluster` labels observation groups; `random_slopes` adds columns after the random intercept. All five families support these coefficients. Exposure-selection `groups` is separate.
 
 ```python
 slopes = km.fit(y, Z, X, cluster=cluster, random_slopes=slope, **demo)
@@ -107,9 +103,9 @@ fixed_slopes = km.fit(
 
 `random_effects()` returns joint coefficient draws; `predict` combines them with the new slope design. A fixed covariance must be positive definite (every nonzero linear combination has positive variance) and match `[intercept, slopes]`. Otherwise, the full covariance is estimated.
 
-Each standard deviation is `random_scale * Phi(raw)`, where `raw` is standard normal and `Phi` is the standard normal cumulative distribution function. Thus SDs are uniform between zero and `random_scale`, default two. Correlations are constructed from a lower-triangular matrix with normal off-diagonal entries, then normalized. This gives a proper prior, with total probability one. It is neither the named LKJ prior nor a uniform distribution over correlation matrices.
+The random-coefficient prior separates standard deviations and correlations. Each SD is `random_scale * Phi(raw)`, with standard-normal `raw` and cumulative distribution function `Phi`, giving a uniform SD between zero and `random_scale` (default two). Correlations come from a normalized lower-triangular matrix with normal off-diagonal entries. This proper prior is neither LKJ nor uniform over correlation matrices.
 
-Known labels use saved coefficients. Each distinct new label receives one fresh vector per draw, shared across its rows. Omitting `cluster_new` sets random effects to zero; on nonlinear links this differs from averaging over new clusters. Supply `random_slopes_new` when predicting their contribution at new rows. Redundant random-design columns are rejected, but few clusters or little slope variation can still leave covariance estimates strongly dependent on priors.
+For prediction, known labels use saved coefficients; each distinct unseen label receives one vector per draw, shared across its rows. Omitting labels fixes effects at zero, not an average over new clusters on nonlinear links. Supply `random_slopes_new` for new slope rows. Redundant design columns are rejected; few clusters or little slope variation can still make covariance estimates sensitive to priors.
 
 Count/probit inputs retain their usual meanings. For example, an NB2 model can use the same slope workflow:
 
@@ -120,11 +116,13 @@ nb = km.fit(counts, Z, X, family="negative_binomial", cluster=cluster,
 count_means = nb.predict(Z[:2], X[:2], seed=50)
 ```
 
-Count `offset` remains a log observation-exposure offset. Response predictions are count means or, with `kind="observation"`, sampled counts. Response-scale exposure contrasts use zero offset and zero random effects. Survival contrasts describe differences in relative hazards; they are not hazard ratios or survival-probability differences.
+Count `offset` remains a log observation-exposure offset. Response predictions are count means or, with `kind="observation"`, sampled counts. Response-scale exposure contrasts use zero offset and zero random effects.
 
 ## Separate Gaussian variance and correlation
 
-With `variance_design=V`, $\operatorname{Var}(\epsilon_i\mid\sigma^2,\boldsymbol\gamma)=\sigma^2\exp(\mathbf v_i^\mathsf T\boldsymbol\gamma)$, where $\mathbf v_i$ is row $i$ of $V$ and $\boldsymbol\gamma\sim N(\mathbf0,\mathbf I)$. No intercept is added to `V`. Its columns must be linearly independent, and no linear combination of them may produce a nonzero constant column, because `sigma2` already controls the baseline variance. This is an exponential variance model with the package's own parameterization; compare [nlme's variance-function definition](https://stat.ethz.ch/R-manual/R-devel/library/nlme/html/varExp.html).
+Random coefficients describe shared cluster variation. Gaussian residual models separately control variation left after fitting and correlation within a cluster. With `variance_design=V`,
+$\operatorname{Var}(\epsilon_i\mid\sigma^2,\boldsymbol\gamma)=\sigma^2\exp(\mathbf v_i^\mathsf T\boldsymbol\gamma)$,
+where $\mathbf v_i$ is row $i$ of $V$ and $\boldsymbol\gamma\sim N(\mathbf0,\mathbf I)$. No intercept is added. Columns must be linearly independent, and no combination may give a nonzero constant column: `sigma2` already sets the baseline variance. This parameterization is distinct from [nlme's variance function](https://stat.ethz.ch/R-manual/R-devel/library/nlme/html/varExp.html).
 
 ```python
 ar = km.fit(
@@ -175,7 +173,7 @@ With fixed correlation and no custom cross matrix, new residuals are independent
 
 ## Encode delayed entry and competing events
 
-Delayed entry means observation starts after the time origin; the subject must remain event-free until entry to be included. Competing causes are different types of first event. For survival, `y` is an exact event time, a right-censoring time, or an interval lower bound. `event=0` means right censoring; positive integers `1..n_causes` identify causes. The first terminal event is modeled; recurrent events and general state transitions are excluded. Baseline intervals are right closed, so an event exactly at a cut belongs to its left interval.
+For survival models, the observation record also determines the likelihood. Delayed entry starts follow-up after time zero and includes only subjects event-free until entry. Competing causes identify different first-event types. `y` records an exact event time, right-censoring time or interval lower bound; `event=0` means right censoring, and `1..n_causes` identifies a cause. Only the first terminal event is modeled, excluding recurrent events and general state transitions. Baseline intervals are right closed: an event exactly at a cut belongs to the interval on its left.
 
 ```python
 time = np.array([0.8, 1.4, 2.2, 3.2, 1.1, 1.9, 2.8, 3.6])
@@ -201,7 +199,9 @@ For cause $k$, the hazard is $\lambda_k(t\mid\mathbf z_i,\mathbf x_i)=\lambda_{0
 shared exposure relevance and selection. Posterior dependence can remain through
 shared parameters and interval-censored likelihoods.
 
-Survival is the probability of no event of any cause. A cumulative incidence function (CIF) is the probability of a particular cause occurring by a time, accounting for all competing causes. Joint draws satisfy survival plus the sum of CIFs equals one. This distinction is explained in the [R survival competing-risk guide](https://cran.r-project.org/web/packages/survival/vignettes/compete.pdf). `cif` retains all causes; `cif.for_cause(2)` selects one. A fit's `for_cause(2)` view instead selects its exposure function, relative-hazard predictions and contrasts. `km.plot_survival(cause_two)` plots a selected CIF with pointwise intervals when Matplotlib is installed.
+For competing risks, survival means no event of any cause; cumulative incidence (CIF) gives the probability of a specified cause by a time. Joint draws satisfy survival plus the sum of CIFs equals one; see the [R survival guide](https://cran.r-project.org/web/packages/survival/vignettes/compete.pdf).
+
+Survival response-scale contrasts subtract relative hazards; they are not hazard ratios or survival-probability differences. To select results, `cif.for_cause(2)` extracts one CIF, whereas a fit's `for_cause(2)` selects its exposure function, relative-hazard predictions and contrasts. `km.plot_survival(cause_two)` plots a CIF with pointwise intervals when Matplotlib is installed.
 
 Prediction `entry` describes subjects known to be event-free through that time; before it, survival is one and CIFs are zero. Static-profile prediction extends the final baseline hazard beyond follow-up. Baseline cuts are held fixed; their selection uncertainty is excluded. A survival intercept and baseline share a scale, so `intercept=False` is useful unless their separate prior-dependent roles are intended.
 
@@ -209,7 +209,7 @@ Delayed-entry fits describe subjects included after surviving to their recorded 
 
 ## Record left or interval censoring
 
-Interval censoring means the event is known to occur between two times. Supply `upper > y` for a finite event interval. Left censoring means the event occurred before the first observation; such a record has lower bound zero and entry zero. An exact event uses `upper == y` or omits `upper`; right censoring uses `event=0` and may use infinite upper bound. Unknown cause `event=-1` is allowed only for a finite interval. Set `n_causes` explicitly when all observed interval causes are unknown. These inputs use explicit KernelMix codes rather than the alternative status codes of [R's Surv](https://stat.ethz.ch/R-manual/R-devel/library/survival/html/Surv.html).
+When an event time is uncertain, specify a finite interval with `upper > y`. Left censoring uses lower bound and entry zero. Exact events use `upper == y` or omit `upper`; right censoring uses `event=0`, optionally with infinite upper bound. Unknown cause `event=-1` requires a finite interval; specify `n_causes` if all event causes are unknown. These are KernelMix codes, not [R Surv status codes](https://stat.ethz.ch/R-manual/R-devel/library/survival/html/Surv.html).
 
 ```python
 lower = np.array([0.0, 1.4, 1.8, 3.2, 1.1, 1.5, 2.8, 3.0])
@@ -226,7 +226,7 @@ The likelihood assumes that censoring and inspection times provide no further in
 
 ## Supply known covariate paths
 
-Repeated `subject` labels identify successive `(entry, y]` risk intervals. Rows must follow time order, meet without gaps, and not overlap within a subject; only its last row may have an event or a finite censoring interval. Later row starts split an existing history rather than representing new cohort entry. Known subject histories with missing required values are dropped as a whole under `missing="drop"`; this preserves recorded histories but does not remove missing-data bias.
+For predictors that change over time, repeated `subject` labels identify successive `(entry, y]` intervals. Rows must be chronological, contiguous and nonoverlapping; only the last may have an event or finite censoring interval. Later starts split an existing history, not new cohort entry. `missing="drop"` removes a whole subject history if required values are missing, preserving the record structure but not correcting missing-data bias.
 
 ```python
 subject = np.repeat(np.arange(4), 2)

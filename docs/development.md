@@ -37,7 +37,7 @@ that a platform passed.
 | Finite-basis storage | Instrumented PP/RFF operations avoid training-size square matrices; this is not a large-dataset benchmark |
 | Package and input checks | Exercise saved objects, preprocessing, errors, distribution contents and installed examples |
 
-The posterior tests compare sampling results with independently calculated answers. They use fixed seeds and tolerances that allow for sampling error based on effective sample size. These small checks do not establish performance across repeated datasets, general interval coverage, reproduction of the paper's studies or complete equivalence with the R API.
+Posterior tests use independent answers, fixed seeds and tolerances allowing for sampling error based on effective sample size. They check small cases, not repeated-dataset performance, general interval coverage, original-study reproduction or full R API equivalence.
 
 ### Reproduce the R fixtures
 
@@ -53,13 +53,9 @@ Rscript tools/export_cluster_reference.R tests/fixtures/r_cluster_reference.json
 python -m pytest tests/test_reference.py tests/test_clusters.py
 ```
 
-The exporters verify and record R/package versions. They call installed
-`ComputePostmeanHnew`, `ExtractPIPs`, and internal kernel/prior/covariance helpers.
-These fixture files contain **constructed parameter states, not fitted R sampling chains**, with explicit
-preprocessing and intercept columns. The R
-public summary API does not accept arbitrary new-cluster labels; Python h+u
-prediction is checked with an independent block-normal calculation. Count and
-survival inference has no corresponding R `bkmr` family; its evidence is separate.
+The exporters record R/package versions and call installed `ComputePostmeanHnew`, `ExtractPIPs` and internal kernel/prior/covariance helpers. Fixtures use **constructed parameter states, not fitted R chains**, with explicit preprocessing and intercept columns.
+
+R's public summary does not accept arbitrary new-cluster labels, so Python $h+u$ prediction is checked by independent block-normal calculations. Count and survival have no matching R `bkmr` family; their checks are separate.
 
 The elementwise tolerance is `rtol=2e-11, atol=2e-12`. R's exact summary uses
 sample covariance between conditional means (denominator $S-1$); Python's
@@ -83,6 +79,4 @@ python -m pip install ".[docs]"
 python tools/build_manual.py
 ```
 
-Pandoc and LaTeX build the PDF; intermediate TeX is temporary. The README figure
-uses short illustrative chains, with values in `docs/figures/response.csv`.
-Its intervals describe uncertainty at individual curve points. They do not show whether the intervals achieve their stated coverage across repeated datasets.
+Pandoc and LaTeX build the PDF from these sources; intermediate TeX is temporary. The README's illustrative curve values are in `docs/figures/response.csv`. Their pointwise intervals do not establish repeated-dataset coverage.

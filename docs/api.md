@@ -1,6 +1,8 @@
 # API reference
 
-Import the public API with `import kernelmix as km`. Arrays are NumPy arrays; pandas is not required. Examples that connect these functions are in the [tutorial](tutorial.md). An exposure profile means one row of exposure values. A posterior draw is one sampled set of values from the fitted distribution, which combines data and priors. See the [model guide](methods.md) for equations and the mapping between paper symbols and API names.
+Import with `import kernelmix as km`; inputs are NumPy arrays, with no pandas dependency. The [tutorial](tutorial.md) connects calls into an analysis, while the [model guide](methods.md) defines equations and maps paper symbols to API names.
+
+An exposure profile is one row of exposure values. A posterior draw is one sampled set of fitted parameter values, combining data and priors. Prediction and contrast objects retain joint draws across profiles.
 
 ## Fitting
 
@@ -49,11 +51,11 @@ constant baseline hazard. Family-specific arguments are rejected elsewhere.
 | `missing` | `"raise"` or joint complete-case `"drop"`. Infinity remains invalid except for right-censoring upper bounds. |
 | Names | Optional unique names for exposure and raw adjustment columns. Otherwise use input DataFrame columns, or generated names. |
 | `initial` | Shared starting values; omitted entries use defaults. See [initialization](#initialization). |
-| `proposal_scales` | Fixed positive log-scale proposal SDs, default `0.3`. All routes accept `r` and `lambda`; default clustered fits add `cluster_lambda`, NB2 adds `dispersion`, and structured survival adds `baseline_hazard`. |
+| `proposal_scales` | Fixed positive log-scale proposal standard deviations (SDs), default `0.3`. All routes accept `r` and `lambda`; default clustered fits add `cluster_lambda`, NB2 adds `dispersion`, and structured survival adds `baseline_hazard`. |
 
-The adjustment columns must be linearly independent, with fewer columns than retained rows. Default probit fits reject complete or quasi-complete separation, where adjustment covariates separate the binary classes, possibly with some observations on the separating boundary. A flat coefficient prior can then give a posterior without finite total probability; structured fits use a proper normal prior, with total probability one. Dense fitting
-uses $O(n^2)$ memory and $O(n^3)$ matrix operations, where $n$ is the retained observation count. Finite GP bases reduce that
-cost, but correlated residual blocks may remain dense.
+Adjustment columns must be linearly independent, with fewer columns than retained rows. Default probit fits reject complete or quasi-complete separation, where covariates separate outcome classes, possibly with observations on the boundary. A flat coefficient prior can then yield a posterior with infinite total probability. Structured fits use a proper normal prior.
+
+For computation, dense fitting uses $O(n^2)$ memory and $O(n^3)$ matrix operations, where $n$ is the retained observation count. Finite GP bases reduce this cost, but correlated residual blocks may remain dense.
 
 ### Initialization
 
@@ -80,9 +82,7 @@ km.Prior(
 )
 ```
 
-`r_distribution` accepts `"gamma"`, `"unif"` and `"invunif"`. The inverse-uniform option places the uniform distribution on `1/r`, so its bounds apply to the reciprocal of an active relevance value. Excluded exposures have relevance zero. Relevance and amplitude gamma priors use mean/standard-deviation (SD) fields. Dispersion and baseline
-gamma priors use shape/rate fields; Gaussian residual variance uses inverse-gamma
-shape/rate. Inclusion probabilities use a beta-distribution prior. A prior describes parameter values before using the outcome data. The [model guide](methods.md#priors-and-exposure-selection) defines these distributions and their parameters.
+Prior fields use different parameterizations. `r_distribution` accepts `"gamma"`, `"unif"` or `"invunif"`; inverse-uniform bounds apply to `1/r` for active exposures, while excluded exposures have `r=0`. Relevance and amplitude gamma priors use mean/SD fields; dispersion and baseline gamma priors use shape/rate. Residual variance uses inverse-gamma shape/rate, and inclusion probabilities use a beta prior. See the [prior definitions](methods.md#priors-and-exposure-selection).
 
 For the default count/survival sampler, `prior=None` uses `lambda_mean=1`, `lambda_sd=.5`,
 `cluster_lambda_mean=1`, `cluster_lambda_sd=.5`; the other fields retain their
@@ -125,7 +125,7 @@ extracted samples are independent copies.
 | `km.BKMRFit.load(path, *, max_bytes=512 * 1024 * 1024)` | Load and validate an archive, limiting total uncompressed member size. |
 | `km.diagnose(values)` | Diagnostics for one finite scalar-parameter array shaped `(chains, draws)`. |
 
-An equal-tailed interval leaves the same posterior probability below and above it. A PIP is the fraction of saved draws in which an exposure or group is included. R-hat compares chains; bulk and tail effective sample sizes account for dependence between draws in the main part and extremes of the distribution.
+To interpret summaries, an equal-tailed interval leaves equal posterior probability below and above its limits. A PIP is the fraction of draws including an exposure or group. R-hat compares chains; bulk/tail effective sample sizes account for draw dependence in the distribution's center/tails.
 
 Default-route saved parameters include `beta`, `r`, `lambda`, `sigma2`, `delta` and `pi`; its binary fits also retain `ystar`. Structured arrays are described in the [structured guide](structured.md). `delta` records exposure inclusion. `beta` includes the added intercept when fitted. No-selection fits store `pi=1`. Diagnostics cannot establish model validity; R-hat requires multiple chains and short or constant sequences can yield undefined diagnostics.
 
@@ -206,7 +206,7 @@ for count/survival and is omitted from their summaries. Saved white coordinates 
 
 ## Exposure contrasts and curves
 
-A contrast is a difference between predictions. A quantile profile combines a chosen percentile of each exposure's own observed distribution. For example, the all-median profile sets each exposure to its own median. Such a combination need not be common in the observed rows.
+Exposure contrasts compare predictions at specified profiles. A quantile profile sets each exposure to a percentile of its own distribution; the all-median profile uses every exposure's median. Such combinations need not occur in observed rows.
 
 ```python
 km.overall_effect(
@@ -268,8 +268,7 @@ With `center=True`, curves and surfaces subtract the **all-median** reference pr
 | Count response | Zero log offset, representing unit observation exposure |
 | Survival response | Differences in relative hazards, not hazard ratios or survival-probability differences |
 
-For response summaries, `X` is one raw adjustment vector and defaults to training
-covariate means. For each draw, predictions are transformed to the requested scale before subtraction. Joint draws keep all compared profiles together, preserving how their uncertainty varies together and exactly canceling identical profiles.
+For response summaries, `X` fixes one raw adjustment vector, defaulting to training covariate means. Each joint draw is transformed to the requested scale before subtraction. This retains covariance and makes identical-profile contrasts exactly zero.
 
 Results store `draws` shaped `(chains, selected_draws, locations)`, `mean`, `sd`,
 `lower`, `upper`, `scale`, `probability`, `kind` and `metadata`. `locations` labels
@@ -297,7 +296,7 @@ Each function returns axes, creating them when `ax=None`. The caller controls
 display, export and styles. Trace `indices` selects a vector component, such as
 `indices=0` for the first `beta`. Traces exclude warmup. PIP plots require selection.
 
-`plot_response` accepts a univariate curve; `plot_overall` accepts an overall effect; `plot_surface` accepts a bivariate surface with at least two values on each grid. Curve and overall plots show pointwise posterior intervals. A surface shows the posterior mean only, with zero-centered colors when centered. Result objects retain its uncertainty. Request separate curves for exposures with different units.
+`plot_response` accepts a univariate curve; `plot_overall` accepts an overall effect. Both show pointwise posterior intervals. `plot_surface` needs at least two values per grid and shows the posterior mean, with zero-centered colors when centered; its result retains interval limits. Use separate curves for different exposure units.
 
 ## Kernel helper
 

@@ -41,7 +41,9 @@ We use the Gaussian BKMR model with $Y_i=\log(\mathrm{Ozone}_i)$, $\mathbf z_i$ 
 $$Y_i=h(\mathbf z_i)+\mathbf x_i^\mathsf T\boldsymbol\beta+\epsilon_i,\qquad
 \epsilon_i\overset{\mathrm{iid}}{\sim}N(0,\sigma^2).$$
 
-Exposure standardization subtracts each exposure's mean and divides by its sample standard deviation, using the 111 retained days. The Gaussian kernel uses independent $r_m\sim\mathrm{Gamma}(1,1)$ priors, with shape and rate equal to one. Residual variance has an inverse-gamma(2,1) prior. Priors describe parameter values before using the outcome data. Other default Gaussian priors remain in force, including the flat adjustment-coefficient prior and $\lambda=\tau/\sigma^2\sim\mathrm{Gamma}(1,0.1)$. Exposure selection is disabled. Month adjustment handles coarse seasonality; independent errors are a working assumption, not a verified property of the daily series.
+We standardize each exposure using the mean and sample standard deviation of the 111 retained days. Month indicators describe broad seasonality; independent errors remain a working assumption for this daily series.
+
+For the Gaussian kernel, independent $r_m\sim\mathrm{Gamma}(1,1)$ priors use shape and rate one. Residual variance has an inverse-gamma(2,1) prior. Other defaults remain: a flat prior for adjustment coefficients and $\lambda=\tau/\sigma^2\sim\mathrm{Gamma}(1,0.1)$. Here $\tau$ is the GP covariance amplitude and $\sigma^2$ the residual variance. Exposure selection is disabled.
 
 From the source folder, with KernelMix and its plotting extra installed:
 
@@ -63,29 +65,31 @@ Four chains run sequentially with seed 73. Each has 5,000 warmup iterations and 
 | Correlation of consecutive-day fitted residuals | 0.0136 |
 | Fitting time on the recorded local environment | 72.6 seconds |
 
-Diagnostics cover ten individual parameters using all saved draws. R-hat compares chains, and effective sample size accounts for dependence between draws. These checks do not prove convergence of every curve. Curves and fitted residuals use 400 evenly
-spaced states per chain. The residual correlation cannot establish independence.
-Fitted-versus-observed values use training data, not held-out observations.
+Sampling diagnostics use all saved draws for ten parameters. R-hat compares chains; effective sample size accounts for dependence between draws. Neither proves convergence of every curve. Curve and fitted-residual summaries use 400 evenly spaced draws per chain.
+
+Residual checks use training data, not held-out observations. The consecutive-day residual correlation cannot establish independent errors.
 
 ![Ozone example: (a–c) posterior means and 95% pointwise credible intervals for $h(\mathbf z)-h(\mathbf z_{0.5})$, with other exposures fixed at their sample medians and $\mathbf z_{0.5}$ the all-median profile; (d) fitted and observed log ozone; (e) residuals by date, with missing dates unconnected; (f) residual pairs one calendar day apart. Intervals assume independent Gaussian working errors.](figures/airquality.png)
 
-Each displayed curve changes one weather variable while holding the others at their medians. The fitted differences increase with solar radiation and temperature and decrease with wind over much of the plotted range. These are associations on the log scale with the other variables fixed. Curve points use distinct percentiles of each variable between the 5th and 95th percentiles. Combining these values with the other variables' medians can still give combinations rarely observed in the data. The [curve table](results/airquality/curves.csv) includes distance to the nearest observed combination of weather values after standardization. Exponentiating a log-scale difference gives a ratio of fitted ozone medians under this model, at the specified weather and month values. It does not give a difference in arithmetic means.
+To isolate a conditional weather association, each curve varies one exposure with the others at their medians. The mean curve generally rises with temperature and falls with wind; the solar-radiation curve is nonlinear. On the log scale, exponentiating a difference gives a ratio of fitted ozone medians at fixed weather and month values, not an arithmetic mean difference.
+
+The grids use distinct 5th–95th percentiles. Combining these with other exposures' medians may produce uncommon profiles. The [curve table](results/airquality/curves.csv) records distance to the nearest observed profile after standardization; the distance plot below shows this support check.
 
 ### Parameter estimates
 
-The relevance parameters $r_m$ enter the kernel; $\boldsymbol\beta$ contains adjustment coefficients. Their scales and meanings differ. Points below are posterior means; bars are 95% equal-tailed credible intervals under the fitted model.
+The fitted model separates kernel relevance $r_m$ from month coefficients $\boldsymbol\beta$. These have different roles and scales. Points show posterior means; bars show 95% equal-tailed credible intervals.
 
 ![Posterior means and 95% equal-tailed credible intervals. (a) Exposure relevance $r_m$. (b) Month coefficients in $\boldsymbol\beta$, relative to May, on the log-ozone scale. The intercept is omitted. Relevance does not measure causal importance.](figures/ozone-parameters.png)
 
 ### Sampling checks
 
-Bulk effective sample size concerns the main posterior distribution; tail effective sample size concerns its tails. The figure shows all ten parameters rather than only the least favorable summary.
+To assess the sampling behind these intervals, we show diagnostics for all ten parameters. Bulk effective sample size concerns the center of the posterior; tail effective sample size concerns its tails.
 
 ![Sampling diagnostics from four chains, each with 20,000 saved draws. (a) Rank-normalized/folded split $\widehat R$. (b) Bulk effective sample size. (c) Tail effective sample size. These checks do not establish convergence or validate the model.](figures/ozone-diagnostics.png)
 
 ### Distance from observed exposure combinations
 
-A curve point can combine an exposure value with medians of other exposures that were rarely recorded together. The distance below measures how far that combination is from the nearest observed combination. It uses training standard deviations to put the exposure axes on a common scale; no cutoff declares a prediction reliable.
+Sampling checks do not show whether a curve profile occurs in the data. We therefore measure its distance to the nearest observed profile, using training standard deviations to put exposures on a common scale. No distance cutoff establishes prediction reliability.
 
 ![Nearest observed-combination distance along each saved curve grid, after standardizing exposures. Other exposures remain at their medians. There are 21 solar-radiation, 17 wind and 21 temperature locations; tied percentile values were removed. Distance describes data proximity, not model validity.](figures/ozone-support.png)
 

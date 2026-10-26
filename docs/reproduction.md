@@ -1,6 +1,6 @@
 # Verified results and open gaps
 
-KernelMix implements the BKMR exposure model described by [Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/kxu058), with the probit and software extension described by [Bobb et al. (2018)](https://doi.org/10.1186/s12940-018-0413-y). Three checks answer different questions: whether software calculations agree, whether intervals achieve their stated coverage across repeated datasets (calibration), and whether the original studies can be reproduced.
+KernelMix follows [Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/kxu058), with the [2018 probit and software extension](https://doi.org/10.1186/s12940-018-0413-y). We distinguish numerical agreement, interval coverage across repeated datasets (calibration), and reproduction of the original studies. Each requires separate evidence.
 
 ## Evidence status
 
@@ -12,7 +12,7 @@ KernelMix implements the BKMR exposure model described by [Bobb et al. (2015)](h
 | Repeated-dataset calibration | Open: systematic estimation error, interval coverage and exposure-selection performance need a separate study |
 | Original-paper numerical reproduction | Blocked by missing original study assets and incomplete settings |
 
-The saved R comparison files use constructed parameter values, not matched sampling runs fitted in both packages. Markov chain Monte Carlo (MCMC) is the repeated sampling used to approximate the posterior. Different samplers do not produce matching chains from equal seeds. See [numerical evidence](development.md#numerical-evidence) for exact software versions and comparison limits.
+The R fixtures contain constructed parameter values, not matched fitted chains. Markov chain Monte Carlo (MCMC) approximates the posterior by sampling; different samplers need not yield identical chains from equal seeds. [Numerical evidence](development.md#numerical-evidence) gives versions and comparison conventions.
 
 ## Original-paper targets
 
@@ -27,7 +27,7 @@ The [2015 paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC5963470/?report=xml) d
 The application chains use 25,000 warmup iterations followed by 25,000 iterations, retaining every fifth draw. Original seeds remain unknown. The inspected [author repository](https://github.com/jenfb/bkmr/tree/45413e338a316362d629f53bd2a917c4bf485c1e)
 does not contain these data assets. Full supplementary settings were not recovered.
 
-The default normal and “realistic” modes of R `SimData` generate Gaussian exposures; the latter uses a rounded covariance. The helper also offers uniform exposures. The original study instead sampled rows from observed exposure data. Substituting that generator would change the experiment and must not be labeled an exact reproduction. The NIEHS and binary examples linked from the 2018 software paper are simulated; they are not observed-data applications.
+A simulated substitute would change the reproduction target. R `SimData` generates Gaussian exposures in its normal and “realistic” modes (rounded covariance for the latter), or uniform exposures in another mode. The original study resampled observed exposure rows. The NIEHS and binary examples linked from the 2018 paper are simulated, not observed-data applications.
 
 Exact reproduction needs the missing inputs and settings. The ozone example
 cannot replace the original studies.

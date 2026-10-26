@@ -1,9 +1,9 @@
 # KernelMix
 
-Bayesian kernel machine regression (BKMR) for exposure mixtures in Python.
-KernelMix estimates how an outcome varies with several exposures together.
-The exposure–response function can describe curved relationships and interactions: the association with one exposure can depend on another. Other measured variables, called adjustment covariates, enter as linear terms. It supports continuous, binary, count and survival outcomes.
-NumPy and SciPy handle fitting and prediction; R is not required.
+KernelMix fits Bayesian kernel machine regression (BKMR) for exposure mixtures in Python.
+It models how an outcome varies with several exposures together, allowing curved associations and interactions between exposures. Other measured variables enter as linear adjustment terms.
+
+To handle different outcome types, the package combines this exposure function with continuous, binary, count or survival models. NumPy and SciPy handle fitting and prediction; R is not required.
 
 | Analysis | Functions |
 | --- | --- |
@@ -59,12 +59,11 @@ lambda               16.93      9.047      4.145      38.61
 sigma2              0.2159    0.08346     0.1142     0.4188
 ```
 
-These short sampling runs, called chains, trigger mixing warnings: they may not explore the fitted distribution well enough. For an analysis, use longer runs and inspect agreement between chains and effective sample size, which accounts for dependence between saved draws.
+These short chains illustrate the output and trigger mixing warnings. For an analysis, use longer runs and inspect agreement between chains and effective sample sizes, which account for dependence between draws.
 
 ![Exposure response curve with pointwise 95% credible intervals](docs/figures/response.png)
 
-The curve changes the first exposure while holding the second at its sample median.
-It shows the difference from the fitted exposure function when both exposures are at their medians. It shows an association, not an identified causal effect.
+The curve varies the first exposure with the second at its median, relative to the all-median exposure profile. It describes a fitted association; a causal interpretation requires additional assumptions.
 
 ## Documentation
 
@@ -76,10 +75,7 @@ It shows the difference from the fitted exposure function when both exposures ar
 | Check the evidence | [Verified results and open gaps](docs/reproduction.md), [development checks](docs/development.md) |
 | Read offline | [Reference manual](docs/manual.pdf) |
 
-The full Gaussian process (GP) model describes how exposure-function values vary together. Its dense matrix calculations limit practical sample size. Finite GP bases represent the function with fewer terms; they approximate the full model and can change uncertainty estimates. Group selection permits at most one active
-exposure per group. Survival uses a piecewise-exponential likelihood.
-Priors differ between default and structured fits; consult the model guides.
-Diagnostics cannot prove convergence or validate assumptions.
+For model choice, the guides explain how kernels, cluster effects and outcome distributions fit together. Dense Gaussian process calculations limit sample size; finite bases reduce computation but approximate the model and can change uncertainty. Group selection permits at most one active exposure per group. Survival uses a piecewise-exponential likelihood. Priors differ between default and structured fits, and favorable diagnostics do not establish convergence or valid assumptions.
 
 ## References and license
 
