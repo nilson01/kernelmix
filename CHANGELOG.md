@@ -1,15 +1,18 @@
 # Changelog
 
-## Unreleased
+## 0.3.1
+
+- Use complete documentation and image URLs in the PyPI description.
+- Add the PyPI installation command to the guides and reference manual.
+
+## 0.3.0
 
 - Add reproducible fitted-posterior comparisons with R and independent extension checks.
 - Add searchable documentation with grouped API pages and common questions.
 
 - Clarify model support, priors and notation; connect the guides and reference manual around analysis tasks.
 - Add a reproducible public-data ozone example, saved results and residual plots.
-- Document original-study gaps and platform verification limits.
-
-## 0.3.0
+- Document original-study gaps and platform verification.
 
 - Matérn 3/2 and rational-quadratic kernels; predictive-process and random-Fourier GP bases.
 - Random slopes with full covariance; Gaussian AR1, exponential and fixed residual correlations.

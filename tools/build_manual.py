@@ -42,6 +42,9 @@ def main():
                     url = (f'https://github.com/nilson01/kernelmix/blob/{options.revision}/'
                            + image.relative_to(root).as_posix())
                     text = text.replace(url, str(vector))
+                    text = text.replace(
+                        "https://nilson01.github.io/kernelmix/figures/" + image.name, str(vector)
+                    )
             # Keep short tables and code blocks with their immediate headings.
             def short_table(match):
                 heading, table = match.group(1) or '', match.group(2)

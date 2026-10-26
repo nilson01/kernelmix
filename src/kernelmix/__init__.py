@@ -25,7 +25,7 @@ from .priors import Prior
 from .result import BKMRFit, Prediction, SurvivalPrediction
 from .structured_result import CompetingRiskPrediction, RandomCoefficientPrediction, StructuredFit
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 __all__ = [
     "StructuredFit", "RandomCoefficientPrediction", "CompetingRiskPrediction", "kernel_matrix",
     "fit", "Prior", "BKMRFit", "Prediction", "gaussian_kernel", "diagnose",
