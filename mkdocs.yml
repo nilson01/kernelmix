@@ -1,4 +1,5 @@
 site_name: KernelMix
+site_url: https://nilson01.github.io/kernelmix/
 site_description: Bayesian kernel machine regression for exposure mixtures in Python.
 repo_url: https://github.com/nilson01/kernelmix
 edit_uri: ''

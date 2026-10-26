@@ -49,6 +49,8 @@ The applications use 25,000 warmup iterations and 25,000 further iterations, ret
 | --- | --- |
 | macOS, Python 3.14, current dependencies | 512 tests passed |
 | macOS, Python 3.10, NumPy 1.24.0 / SciPy 1.10.0 / Matplotlib 3.7.0 | 512 tests passed |
-| Hosted Linux/Python 3.10 and 3.14; Windows/Python 3.13 | Jobs blocked before runner startup |
+| Linux, Python 3.10, minimum dependencies | 512 tests passed |
+| Linux, Python 3.14, current dependencies | 512 tests passed |
+| Windows, Python 3.13, current dependencies | 512 tests passed |
 
-No Windows runtime has been verified; a macOS pass does not establish Windows or Linux compatibility. See [Actions](https://github.com/nilson01/kernelmix/actions) for current hosted results.
+The [hosted checks](https://github.com/nilson01/kernelmix/actions/runs/40263682700) test installed wheels outside the source checkout.

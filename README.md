@@ -15,7 +15,7 @@ To handle different outcome types, the package combines this exposure function w
 
 ## Install
 
-With access to this repository:
+Install directly from GitHub:
 
 ```sh
 python -m pip install "kernelmix[plots] @ git+https://github.com/nilson01/kernelmix.git@main"
@@ -61,6 +61,8 @@ These short chains illustrate the output and trigger mixing warnings. For an ana
 The curve varies the first exposure with the second at its median, relative to the all-median exposure profile. It describes a fitted association; a causal interpretation requires additional assumptions.
 
 ## Documentation
+
+Browse the [searchable documentation](https://nilson01.github.io/kernelmix/).
 
 The [common questions](docs/faq.md) explain prediction scales, missing values, selection and diagnostics. The [observed ozone example](docs/airquality.md) includes source data and saved results. Download the [reference manual](docs/manual.pdf) for offline reading. Contributors can find [development checks](docs/development.md) separately.
 

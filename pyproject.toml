@@ -21,7 +21,7 @@ dev = ["pytest>=7.4", "ruff>=0.9", "build>=1.2", "twine>=5", "matplotlib>=3.7"]
 [project.urls]
 Repository = "https://github.com/nilson01/kernelmix"
 Issues = "https://github.com/nilson01/kernelmix/issues"
-Documentation = "https://github.com/nilson01/kernelmix/tree/main/docs"
+Documentation = "https://nilson01.github.io/kernelmix/"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -1,0 +1,149 @@
+name: Package release
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Validate distributions or publish to a package index
+        type: choice
+        required: true
+        default: check
+        options: [check, testpypi, pypi]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.14'
+      - name: Install distribution tools
+        run: python -m pip install build twine
+      - name: Check publication reference and version
+        env:
+          RELEASE_TARGET: ${{ inputs.target }}
+        run: |
+          python - <<'PY'
+          import os
+          import tomllib
+          from packaging.version import Version
+          with open('pyproject.toml', 'rb') as source:
+              version = Version(tomllib.load(source)['project']['version'])
+          target = os.environ['RELEASE_TARGET']
+          ref = os.environ['GITHUB_REF']
+          if target not in {'check', 'testpypi', 'pypi'}:
+              raise SystemExit('Unknown release target.')
+          if target == 'testpypi' and ref != 'refs/heads/main':
+              raise SystemExit('TestPyPI publication requires main.')
+          if target == 'pypi':
+              if ref != f'refs/tags/v{version}':
+                  raise SystemExit('PyPI publication requires a tag matching the package version.')
+              if version.is_prerelease or version.is_devrelease:
+                  raise SystemExit('PyPI publication requires a final release version.')
+          PY
+      - name: Require passing CI before publication
+        if: inputs.target != 'check'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          repository = os.environ['GITHUB_REPOSITORY']
+          sha = os.environ['GITHUB_SHA']
+          endpoint = f'repos/{repository}/actions/workflows/ci.yml/runs?head_sha={sha}&per_page=100'
+          runs = json.loads(subprocess.check_output(['gh', 'api', endpoint]))['workflow_runs']
+          eligible = [run for run in runs
+                      if run['head_sha'] == sha and run['head_branch'] == 'main'
+                      and run['head_repository']['full_name'] == repository
+                      and run['path'] == '.github/workflows/ci.yml'
+                      and run['event'] in {'push', 'workflow_dispatch'}]
+          if not eligible:
+              raise SystemExit('No completed CI workflow on main for this commit.')
+          latest = max(eligible, key=lambda run: (run['run_number'], run['run_attempt']))
+          if latest['status'] != 'completed' or latest['conclusion'] != 'success':
+              raise SystemExit('The latest CI workflow for this commit did not pass.')
+          endpoint = f"repos/{repository}/actions/runs/{int(latest['id'])}/jobs?filter=latest&per_page=100"
+          jobs = json.loads(subprocess.check_output(['gh', 'api', endpoint]))['jobs']
+          required = {'package (ubuntu-latest, 3.10, true)', 'package (ubuntu-latest, 3.14, false)', 'package (windows-latest, 3.13, false)'}
+          passed = {job['name'] for job in jobs if job['status'] == 'completed' and job['conclusion'] == 'success'}
+          if not required.issubset(passed):
+              raise SystemExit('The CI workflow did not pass all required configurations.')
+          PY
+      - name: Build distributions and check metadata
+        run: |
+          python -m build
+          python -m twine check --strict dist/*
+      - name: Check publication contents
+        run: |
+          python tools/check_public.py
+          python - <<'PY'
+          from pathlib import Path
+          import tarfile
+          import zipfile
+          from tools.check_public import validate
+          archives = sorted(Path('dist').iterdir())
+          if len(archives) != 2 or sum(p.suffix == '.whl' for p in archives) != 1 or sum(p.name.endswith('.tar.gz') for p in archives) != 1:
+              raise SystemExit('Expected one wheel and one source archive.')
+          for archive in archives:
+              if archive.suffix == '.whl':
+                  with zipfile.ZipFile(archive) as source:
+                      for name in source.namelist():
+                          if name.endswith('/'):
+                              continue
+                          if not name.startswith(('kernelmix/', 'kernelmix-')):
+                              raise SystemExit(f'Unexpected wheel entry: {name}')
+                          if Path(name).suffix.lower() in {'.tex', '.npz', '.rds', '.key', '.pem'}:
+                              raise SystemExit(f'Unexpected wheel content: {name}')
+              else:
+                  with tarfile.open(archive) as source:
+                      for member in source.getmembers():
+                          if not member.isfile():
+                              continue
+                          path = member.name.split('/', 1)[1]
+                          if path in {'PKG-INFO', 'setup.cfg'} or path.startswith('src/kernelmix.egg-info/'):
+                              continue
+                          problem = validate(path, source.extractfile(member).read())
+                          if problem:
+                              raise SystemExit(f'{path}: {problem}')
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-distributions
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    if: inputs.target != 'check'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: ${{ inputs.target }}
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: python-distributions
+          path: dist/
+      - name: Publish distributions
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # release/v1
+        with:
+          repository-url: ${{ inputs.target == 'testpypi' && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}
