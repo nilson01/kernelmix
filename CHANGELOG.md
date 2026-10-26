@@ -2,8 +2,7 @@
 
 ## Unreleased
 
-- Correct model-support and prior descriptions; explain model terms and simplify the guides and reference manual.
-
+- Clarify model support, priors and notation; connect the guides and reference manual around analysis tasks.
 - Add a reproducible public-data ozone example, saved results and residual plots.
 - Document original-study gaps and platform verification limits.
 
