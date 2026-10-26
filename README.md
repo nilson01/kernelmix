@@ -1,8 +1,8 @@
 # KernelMix
 
 Bayesian kernel machine regression (BKMR) for exposure mixtures in Python.
-KernelMix estimates a flexible exposure–response function, with linear adjustment
-for covariates. It supports continuous, binary, count and survival outcomes.
+KernelMix estimates how an outcome varies with several exposures together.
+The exposure–response function can describe curved relationships and interactions: the association with one exposure can depend on another. Other measured variables, called adjustment covariates, enter as linear terms. It supports continuous, binary, count and survival outcomes.
 NumPy and SciPy handle fitting and prediction; R is not required.
 
 | Analysis | Functions |
@@ -10,7 +10,7 @@ NumPy and SciPy handle fitting and prediction; R is not required.
 | Fit outcomes | `fit`, `Prior`: Gaussian, probit, Poisson, negative binomial and piecewise-exponential survival |
 | Cluster observations | Random intercepts/slopes; Gaussian AR1, exponential or supplied residual correlations |
 | Model unequal residual variance | Gaussian variance regression and residual-variance prediction |
-| Choose a Gaussian process (GP) representation | Gaussian, Matérn 3/2 or rational-quadratic kernels; dense, predictive-process or random-Fourier bases |
+| Choose how to represent the exposure function | Gaussian, Matérn 3/2 or rational-quadratic kernels; dense, predictive-process or random-Fourier bases |
 | Model survival records | Delayed entry, competing causes, known predictor histories and left/interval censoring |
 | Select exposures or exposure groups | `selection="component"` or `"group"`, posterior inclusion probabilities |
 | Inspect results | `summary`, `diagnostics`, `posterior_samples` |
@@ -59,13 +59,12 @@ lambda               16.93      9.047      4.145      38.61
 sigma2              0.2159    0.08346     0.1142     0.4188
 ```
 
-These illustrative chains trigger mixing warnings. Choose longer runs using
-chain mixing, effective sample size and the precision needed for the analysis.
+These short sampling runs, called chains, trigger mixing warnings: they may not explore the fitted distribution well enough. For an analysis, use longer runs and inspect agreement between chains and effective sample size, which accounts for dependence between saved draws.
 
 ![Exposure response curve with pointwise 95% credible intervals](docs/figures/response.png)
 
-The curve holds the second exposure at its sample median and subtracts the
-all-median reference. It shows an association, not an identified causal effect.
+The curve changes the first exposure while holding the second at its sample median.
+It shows the difference from the fitted exposure function when both exposures are at their medians. It shows an association, not an identified causal effect.
 
 ## Documentation
 
@@ -77,8 +76,7 @@ all-median reference. It shows an association, not an identified causal effect.
 | Check the evidence | [Verified results and open gaps](docs/reproduction.md), [development checks](docs/development.md) |
 | Read offline | [Reference manual](docs/manual.pdf) |
 
-Dense calculations limit practical sample size. Finite GP bases are approximations,
-with their own uncertainty limits. Group selection permits at most one active
+The full Gaussian process (GP) model describes how exposure-function values vary together. Its dense matrix calculations limit practical sample size. Finite GP bases represent the function with fewer terms; they approximate the full model and can change uncertainty estimates. Group selection permits at most one active
 exposure per group. Survival uses a piecewise-exponential likelihood.
 Priors differ between default and structured fits; consult the model guides.
 Diagnostics cannot prove convergence or validate assumptions.
@@ -89,7 +87,7 @@ The method is due to [Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/
 The software and binary-outcome extension are described by
 [Bobb et al. (2018)](https://doi.org/10.1186/s12940-018-0413-y).
 KernelMix is a separate Python implementation. Selected Gaussian/probit calculations, including random intercepts, are checked
-against R [`bkmr`](https://cran.r-project.org/package=bkmr) 0.2.2.
+at fixed parameter values against R [`bkmr`](https://cran.r-project.org/package=bkmr) 0.2.2.
 See [NOTICE](NOTICE) for attribution and [LICENSE](LICENSE) for GPL-2.0-only terms.
 
 Count and survival models use additional standard likelihoods documented in the

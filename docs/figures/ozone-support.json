@@ -1,0 +1,137 @@
+{
+  "description": "Nearest observed-profile distances for the saved marginal-curve locations: 21 each for solar radiation and temperature, and 17 distinct wind values. At each location the other exposures are held at their complete-case medians. Distance is the Euclidean distance to the nearest complete observed exposure profile after dividing each coordinate difference by its complete-case sample standard deviation. The saved locations span the 5th\u201395th marginal percentiles. Greater distance means the profile is farther from the observed data; no distance threshold or validity guarantee is implied.",
+  "alt_text": "Three point plots show the saved standardized nearest-profile distance along each exposure grid, with a common vertical scale and exposures on their original scales.",
+  "transformations": [
+    "Read value and nearest_standardized_distance from all 59 curves.csv rows unchanged; wind percentile ties yield 17 distinct saved locations.",
+    "No distance recomputation, smoothing, thresholding, model fit, or posterior evaluation."
+  ],
+  "inputs": {
+    "docs/results/airquality/curves.csv": "4f5d8d7bdf873f8b3d0cbc754f7299aae0ceb2ca51b40b58f60ea0757396e1d2"
+  },
+  "script_sha256": "2d4fcb5be8ec1527a3708fabfe38bdff520ccd86e5b3bc0b5e5445abe8432b9c",
+  "size_inches": [
+    7.2,
+    2.7
+  ],
+  "png_dpi": 450,
+  "png_pixels": [
+    3240,
+    1215
+  ],
+  "background": "opaque white",
+  "pdf_fonttype": 42,
+  "versions": {
+    "python": "3.14.3",
+    "numpy": "2.5.4",
+    "matplotlib": "3.11.2"
+  },
+  "source_checks": {
+    "recorded": 153,
+    "complete": 111,
+    "missing_by_field": {
+      "Ozone": 37,
+      "Solar.R": 7,
+      "Wind": 0,
+      "Temp": 0,
+      "Month": 0,
+      "Day": 0
+    },
+    "month_counts": [
+      {
+        "month": 5,
+        "recorded": 31,
+        "complete": 24
+      },
+      {
+        "month": 6,
+        "recorded": 30,
+        "complete": 9
+      },
+      {
+        "month": 7,
+        "recorded": 31,
+        "complete": 26
+      },
+      {
+        "month": 8,
+        "recorded": 31,
+        "complete": 23
+      },
+      {
+        "month": 9,
+        "recorded": 30,
+        "complete": 29
+      }
+    ],
+    "source_hash_and_retained_rows_match": true,
+    "observed_ozone_and_source_rows_match": true,
+    "parameters": 10,
+    "diagnostics": 10,
+    "calendar_days_contiguous": true
+  },
+  "text_within_canvas": true,
+  "original_figures_sha256": {
+    "docs/figures/airquality.pdf": "cbce4b23c4ca85228a45e0a937843eeb72d3b4e5da33cbd09a659b69419a304a",
+    "docs/figures/airquality.png": "21771e68113900418213cf8b845dfe8c8cc069724945b2c502257917b2febc8b",
+    "docs/figures/count-survival.pdf": "2f99f9192ba5d8c46671f030a64853b7a242acf739eec4de7e9e8c3978bae91f",
+    "docs/figures/count-survival.png": "a4afaf9b6d709b2cc7b6252a880a817580ec33a86c46fde741d0d489c28b1fc4",
+    "docs/figures/response.pdf": "62ee272144d83e382e7e399157beec545789ae0fa8bdbdf8954f06d9d53e72aa",
+    "docs/figures/response.png": "711d7816c384b399264d84107588bf6a23afc6d159c2c45f452b8704b15cb1cd"
+  },
+  "outputs_sha256": {
+    "pdf": "0db5a5c31e917745186ec39b08e83bbc5619d796ad9b48c54e72a0181a59d389",
+    "png": "76d7a9d3561ea46a177f47b7c8eadd7d9973884eb208f9c9f75f9bd1f8eca912"
+  },
+  "scope": "Presentation of saved tables only; no model fitting or posterior recomputation.",
+  "publisher_requirements": "Nature-inspired presentation only. Live research-figure guidance was inspected on 2026-10-25; final-submission compliance remains unverified.",
+  "export_style": {
+    "name": "Nature-inspired compact full-width",
+    "width_mm": 182.88,
+    "font_size_pt": 8.2,
+    "axes_width_pt": 0.5,
+    "source_preset": "scientific-visualization/assets/nature.mplstyle",
+    "source_preset_sha256": "f37a361cdda8846da0794fd879cc8173402094f110239d57e0227fdd8299a4f6",
+    "preset_snapshot": "2026-10-01; visual guidance, not compliance certification",
+    "live_guide_url": "https://research-figure-guide.nature.com/figures/preparing-figures-our-specifications/",
+    "guide_inspected": "2026-10-25",
+    "live_guide_snapshot_sha256": "c5695036b282db8bda05eb11cbe113d85c0d4d3a9c355cda2aab7e1e7e33e6d8",
+    "adaptations": "8.2 pt body and 8.5 pt panels for documentation readability; Nature body guidance is 5\u20137 pt and panels 8 pt",
+    "background_grids": false,
+    "bar_hatching": false
+  },
+  "displayed_ranges": {
+    "Solar.R": {
+      "rows": 21,
+      "exposure_range": [
+        22.0,
+        310.0
+      ],
+      "distance_range": [
+        0.054853249832248686,
+        0.5324651123085263
+      ]
+    },
+    "Wind": {
+      "rows": 17,
+      "exposure_range": [
+        4.6,
+        15.5
+      ],
+      "distance_range": [
+        0.054853249832248374,
+        0.5852901442830132
+      ]
+    },
+    "Temp": {
+      "rows": 21,
+      "exposure_range": [
+        61.0,
+        92.5
+      ],
+      "distance_range": [
+        0.054853249832248374,
+        0.8268193458842689
+      ]
+    }
+  }
+}

@@ -36,15 +36,12 @@ def main():
                 return f'](https://github.com/nilson01/kernelmix/blob/{options.revision}/{resolved.as_posix()})'
             text = re.sub(r'\]\(([^)]+)\)', link, text)
             # Use the local original image when compiling.
-            text = text.replace(
-                f'https://github.com/nilson01/kernelmix/blob/{options.revision}/docs/figures/response.png',
-                str(root / 'docs/figures/response.pdf'))
-            text = text.replace(
-                f'https://github.com/nilson01/kernelmix/blob/{options.revision}/docs/figures/count-survival.png',
-                str(root / 'docs/figures/count-survival.pdf'))
-            text = text.replace(
-                f'https://github.com/nilson01/kernelmix/blob/{options.revision}/docs/figures/airquality.png',
-                str(root / 'docs/figures/airquality.pdf'))
+            for image in (root / 'docs/figures').glob('*.png'):
+                vector = image.with_suffix('.pdf')
+                if vector.exists():
+                    url = (f'https://github.com/nilson01/kernelmix/blob/{options.revision}/'
+                           + image.relative_to(root).as_posix())
+                    text = text.replace(url, str(vector))
             # Keep short tables and code blocks with their immediate headings.
             def short_table(match):
                 heading, table = match.group(1) or '', match.group(2)

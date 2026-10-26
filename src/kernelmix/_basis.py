@@ -44,10 +44,13 @@ def _relevance(r, columns):
 
 
 def kernel_matrix(Z1, Z2=None, r=None, *, kernel='gaussian', alpha=1):
-    """Unit-diagonal Gaussian, Matérn 3/2 or rational-quadratic covariance.
+    """Return Gaussian, Matérn 3/2 or rational-quadratic kernel values.
 
-    Let q be the relevance-weighted squared distance. The kernels are exp(-q),
-    (1+sqrt(6q))*exp(-sqrt(6q)), and (1+q/alpha)**(-alpha).
+    A kernel assigns similarity to pairs of exposure profiles. Here each profile
+    has similarity one with itself. Let q be sum_m r_m * (z_m - z'_m)**2.
+    The three kernels are exp(-q), (1+sqrt(6q))*exp(-sqrt(6q)), and
+    (1+q/alpha)**(-alpha). Relevance r_m is nonnegative; alpha is positive.
+    Inputs are used directly, without training standardization.
     """
     a = _matrix(Z1, 'Z1')
     b = a if Z2 is None else _matrix(Z2, 'Z2', a.shape[1])

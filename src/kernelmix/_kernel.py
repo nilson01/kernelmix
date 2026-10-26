@@ -11,9 +11,12 @@ def _matrix(value, name):
 
 
 def gaussian_kernel(Z1, Z2=None, r=None):
-    """Return exp(-sum_j r[j]*(Z1[:,j]-Z2[:,j])**2).
+    """Return the Gaussian kernel between rows of Z1 and Z2.
 
-    Relevance values are nonnegative; all-zero relevance gives a constant kernel.
+    For exposure profiles z and z', the kernel is
+    exp{-sum_m r_m * (z_m - z'_m)**2}. Each nonnegative r_m controls how much
+    exposure m changes similarity. If all r_m are zero, every kernel entry is one.
+    Inputs are used directly, without training standardization.
     """
     a = _matrix(Z1, 'Z1')
     b = a if Z2 is None else _matrix(Z2, 'Z2')

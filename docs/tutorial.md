@@ -1,8 +1,8 @@
 # An exposure-mixture analysis
 
-KernelMix fits Bayesian kernel machine regression (BKMR) for continuous, binary, count and right-censored survival outcomes. The exposure-response function, called `h`, can include nonlinear associations and interactions. Adjustment covariates enter linearly.
+KernelMix fits Bayesian kernel machine regression (BKMR) for continuous, binary, count and right-censored survival outcomes. The exposure-response function, called `h`, describes how the outcome varies with the exposures together. It can describe curved relationships and interactions, where the association with one exposure depends on another. Adjustment covariates are other measured variables included as linear terms.
 
-This tutorial uses small, deterministic example data. Run its Python blocks in order after installing the source package as described in the [README](../README.md). The chains illustrate the workflow; they are too short for inference. Use longer runs, inspect mixing and effective sample sizes, and check prior sensitivity for an analysis.
+This tutorial uses small, deterministic example data. Run its Python blocks in order after installing the source package as described in the [README](../README.md). The chains illustrate the workflow; they are too short for inference. For an analysis, use longer runs and check whether chains explore similar values (mixing). Inspect effective sample sizes, which account for dependence between draws, and whether conclusions change under other reasonable prior distributions. A prior describes parameter values before using the outcome data.
 
 ## Define the data
 
@@ -19,11 +19,11 @@ y = 0.3 + np.sin(2 * t) + 0.2 * t**2
 names = ["Exposure A", "Exposure B", "Exposure C"]
 ```
 
-The default adds an intercept, so `X` should not include a constant column. Missing values raise an error. Use `missing="drop"` only when joint complete-case analysis is appropriate; that option drops a row if its outcome, exposure or adjustment value is missing.
+The default adds an intercept, so `X` should not include a constant column. Missing values raise an error. Use `missing="drop"` only when analysis of complete rows is appropriate. It drops a row if its outcome, exposure or adjustment value is missing. Dropping rows does not correct bias caused by missing data.
 
 ## Fit and inspect a continuous outcome
 
-Component selection allows each exposure to enter or leave the model. Its posterior inclusion probability (PIP) is the proportion of saved states in which that exposure is included.
+Component selection allows each exposure to enter or leave the model. Its posterior inclusion probability (PIP) is the proportion of saved draws in which that exposure is included.
 
 ```python
 gaussian = km.fit(
@@ -38,11 +38,11 @@ pip_rows = gaussian.inclusion_probabilities()
 checks = gaussian.diagnostics()
 ```
 
-The summary gives posterior means, standard deviations and credible intervals. Split R-hat compares chains; effective sample sizes account for dependence between draws. These diagnostics detect some sampling problems but cannot validate the model. PIPs depend on selection priors and do not measure causal importance.
+The summary describes the posterior distribution, which combines the data and priors. It gives means, standard deviations and credible intervals. A 95% credible interval contains 95% of the posterior probability for the reported quantity. Split R-hat compares the sampled distributions across parts of the chains; values near one are desirable. Effective sample sizes account for dependence between draws. These diagnostics detect some sampling problems but cannot validate the model. PIPs depend on selection priors and do not measure causal importance.
 
 ## Predict at exposure profiles
 
-Supply new exposures in the training column order and their original units. New adjustment rows contain the raw `X` columns, without an intercept. They are required when adjustments were fitted.
+An exposure profile is one row of exposure values, such as the values for one person or day. Supply new exposures in the training column order and their original units. New adjustment rows contain the raw `X` columns, without an intercept. They are required when adjustments were fitted.
 
 ```python
 Znew = Z[:3].copy()
@@ -55,11 +55,11 @@ h_prediction = gaussian.predict_h(Znew, seed=20)
 prediction_rows = mean_prediction.to_records()
 ```
 
-The default predicts outcome means. Observation predictions add residual noise and describe new outcomes. `predict_h` returns only the exposure function, without the intercept or adjustment contribution. Prediction objects retain joint draws, pointwise intervals and covariance between prediction rows. Calling `predict()` without new data uses the retained training rows and their adjustments.
+The default predicts outcome means. Observation predictions add residual noise and describe new outcomes. `predict_h` returns only the exposure function, without the intercept or adjustment contribution. Prediction objects retain joint draws: each saved draw contains values for all requested rows together. They also store intervals for each row and the covariance, which describes how predictions vary together. Calling `predict()` without new data uses the retained training rows and their adjustments.
 
 ## Summarize exposure associations
 
-Overall contrasts compare profiles at which every exposure is at a specified marginal quantile. Single-exposure contrasts change one exposure while fixing the others. These are conditional associations; a causal interpretation needs additional scientific assumptions.
+A contrast is a difference between fitted values. Overall contrasts set every exposure to a chosen percentile of its own observed distribution, then compare that combination with a reference combination. Single-exposure contrasts change one exposure while fixing the others. These describe associations with the specified values held fixed. A causal interpretation needs additional scientific assumptions.
 
 ```python
 overall = km.overall_effect(gaussian, reference=0.5, seed=21)
@@ -76,13 +76,13 @@ surface = km.bivariate_response(
 overall_rows = overall.to_records()
 ```
 
-By default, these summaries describe changes in `h`. Curves and surfaces hold other exposures at their medians and subtract a common all-median reference profile. A centered value of zero means no change from that reference. `center=False` returns the uncentered curve or surface. Interval limits are pointwise posterior quantiles, not a simultaneous band across the whole curve.
+By default, these summaries describe changes in `h`. Curves and surfaces hold other exposures at their medians and subtract a common all-median reference profile. A centered value of zero means no change from that reference. `center=False` returns the uncentered curve or surface. Each interval describes posterior uncertainty at one point. The collection of intervals is not a band with the same probability for the whole curve at once.
 
-Each contrast uses joint prediction draws for the profiles being compared. This retains their covariance. A profile compared with itself has exactly zero contrast. Marginal quantile combinations can be poorly represented among observed profiles, especially with correlated exposures; examine data support when interpreting them.
+Each contrast uses joint prediction draws for the profiles being compared. This retains their covariance. A profile compared with itself has exactly zero contrast. Combining percentiles chosen separately for each exposure can create a combination rarely seen in the data, especially when exposures are correlated. Check how close the requested combinations are to observed rows before interpreting them.
 
 ## Fit a binary outcome
 
-For a binary outcome, use `family="binomial"`. The probit link maps the latent mean to a probability with the standard normal cumulative distribution function. Outcomes must be zero or one.
+For a binary outcome, use `family="binomial"`. The probit link converts an underlying normal-scale predictor to a probability using the standard normal cumulative distribution function. Outcomes must be zero or one.
 
 ```python
 y_binary = np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1])
@@ -98,12 +98,11 @@ probability_contrast = km.overall_effect(
 )
 ```
 
-Binary mean predictions are probabilities. With `kind="observation"`, predictions are zero-or-one outcomes. A response-scale contrast subtracts predicted probabilities after applying the probit transformation to each joint draw. It is not an odds ratio. In exposure summaries, `X` is one raw adjustment vector held constant at every profile. If it is omitted, response-scale summaries use the retained training covariate means. Latent-scale summaries use `h` alone and do not accept `X`.
+Binary mean predictions are probabilities. With `kind="observation"`, predictions are zero-or-one outcomes. A response-scale contrast subtracts predicted probabilities after applying the probit transformation to each joint draw. It is not an odds ratio. In exposure summaries, `X` is one raw adjustment vector held constant at every profile. If it is omitted, response-scale summaries use the retained training covariate means. The API calls summaries of `h` alone "latent-scale" summaries; they exclude adjustment terms and do not accept `X`.
 
 ## Fit counts and include observation time
 
-Use `"poisson"` for conditional Poisson counts or `"negative_binomial"` for
-additional conditional variation. An offset is the log observation time or
+Use `"poisson"` when the count variance equals its mean after accounting for predictors and any cluster effects. Use `"negative_binomial"` to allow additional variation. An offset is the log observation time or
 another known exposure amount. It enters with coefficient one.
 
 ```python
@@ -125,14 +124,13 @@ to use the Poisson model. The negative-binomial `dispersion` parameter controls
 extra variation; it is separate from variation due to exposures or clusters.
 Response-scale exposure summaries use an offset of zero, so they compare counts
 per unit observation exposure. Their latent scale describes changes in `h`,
-which enter the log mean. These models use proper coefficient priors; see the
-model guide for their defaults.
+which enter the log mean. These models use proper coefficient priors: distributions with total probability one. See the [model guide](methods.md) for the defaults.
 
 ## Fit right-censored survival times
 
 Each observation supplies a positive observed time and an event indicator:
 `1` means the event occurred; `0` means follow-up ended first. The model uses
-proportional hazards with a piecewise-constant baseline hazard.
+proportional hazards: predictor effects multiply the event rate by a factor that does not change with time. The baseline hazard is the reference event rate; it is constant within each specified time interval.
 
 ```python
 observed_time = np.array([1.0, 1.4, 2.0, 2.6, 3.0, 3.8, 4.0, 4.7, 5.2, 6.0, 6.4, 7.0])
@@ -171,7 +169,7 @@ share a scale, so this example omits the intercept.
 The figure uses the data above, 200 warmup and 200 saved draws per chain,
 two chains, and the same seeds.
 Predictions use 100 draws per chain. These short fits have mixing warnings and illustrate the outputs;
-they do not support inference or establish interval calibration.
+they do not support inference or show whether the intervals achieve their stated coverage across repeated datasets.
 [Figure values](figures/count-survival.csv).
 
 ## Account for clustered observations
@@ -220,7 +218,7 @@ Curve and overall plots include pointwise posterior intervals. The surface plot 
 
 ## Save and load a fit
 
-A fit includes its retained training data as well as saved states. Store and share it with the same care as the input data. The archive uses a non-pickle format.
+A fit includes its retained training data as well as saved draws. Store and share it with the same care as the input data. The archive uses a non-pickle format.
 
 ```python
 from pathlib import Path

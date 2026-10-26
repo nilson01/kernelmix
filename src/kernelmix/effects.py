@@ -1,9 +1,12 @@
-"""Posterior exposure associations in original exposure units.
+"""Exposure associations summarized from posterior draws in original units.
 
-These are conditional association summaries, not causal effects. Response-scale
-summaries hold raw adjustment covariates at ``X``, or their retained training
-means by default. Intervals are equal-tailed pointwise posterior intervals.
-Calls are limited to 4096 result locations because joint prediction and
+Each summary varies selected exposures while holding other inputs fixed;
+this is a conditional association, not an identified causal effect. ``latent``
+uses the exposure function h. ``response`` uses outcome means, probabilities
+or relative hazards, holding adjustment covariates at ``X`` or their retained
+training means. Pointwise intervals apply to each location separately, with
+equal posterior probability below and above the reported limits.
+Calls are limited to 4096 output locations because joint prediction and
 contrast matrices are dense; smaller grids usually give clearer summaries.
 """
 from dataclasses import dataclass, field
@@ -28,12 +31,13 @@ def _bounded(count):
 
 @dataclass
 class EffectResult:
-    """Joint draws (chain, draw, location) and pointwise posterior summaries.
+    """Draws of exposure associations and summaries at each requested location.
 
-    ``locations`` contains one dictionary per location, in the same order as
-    the last draw dimension. ``profiles`` records the original-unit exposure
-    rows used in prediction. ``coefficients`` maps their joint draws to each
-    reported association. SD uses the sample denominator when possible.
+    ``draws`` has axes (chain, saved draw, location). Each saved draw keeps the
+    locations together, preserving their dependence. ``locations`` describes the
+    last axis; ``profiles`` stores original-unit exposure rows. ``coefficients``
+    maps their joint predictions to differences or other reported summaries.
+    SD is the sample standard deviation when more than one draw is available.
     """
     draws: np.ndarray
     mean: np.ndarray
@@ -174,7 +178,12 @@ def _evaluate(fit, profiles, coefficients, locations, *, scale, X, probability,
 
 def overall_effect(fit, quantiles=(.25, .5, .75), reference=.5, scale='latent',
                    X=None, probability=.95, max_draws=None, seed=None):
-    """Compare all-exposure quantile profiles with one reference profile."""
+    """Compare profiles where all exposures are at their own specified quantiles.
+
+    Subtract the profile at ``reference`` from each profile in ``quantiles``.
+    A quantile is taken separately for each exposure, so a combined profile need
+    not have been observed. The default scale compares the exposure function h.
+    """
     z = _training(fit)
     qs = _quantiles(quantiles, 'quantiles')
     _bounded(len(qs))
@@ -190,12 +199,13 @@ def overall_effect(fit, quantiles=(.25, .5, .75), reference=.5, scale='latent',
 def univariate_response(fit, variable=None, grid=None, points=50,
                         fixed_quantile=.5, center=True, scale='latent', X=None,
                         probability=.95, max_draws=None, seed=None):
-    """Vary exposures on original-unit grids; others stay at fixed_quantile.
+    """Vary one exposure on a grid, holding other exposures at fixed_quantile.
 
-    ``variable=None`` returns all curves jointly, using a common grid when one
-    is supplied. Centering subtracts the common all-median profile draw by draw,
-    including when fixed_quantile differs from .5. This differs from R's
-    subtraction of the average fitted grid value.
+    All grid values use original exposure units. ``variable=None`` returns all
+    curves together, sharing ``grid`` when supplied. With ``center=True``,
+    subtract the profile with every exposure at its median from each saved draw,
+    even when fixed_quantile differs from .5. R bkmr instead subtracts the
+    average fitted grid value.
     """
     z = _training(fit)
     q = _q(fixed_quantile, 'fixed_quantile')
@@ -226,7 +236,11 @@ def univariate_response(fit, variable=None, grid=None, points=50,
 def bivariate_response(fit, variables=(0, 1), grids=None, points=20,
                        fixed_quantile=.5, center=True, scale='latent', X=None,
                        probability=.95, max_draws=None, seed=None):
-    """Vary a pair on a Cartesian grid; center at the all-median profile."""
+    """Vary two exposures over all combinations of their grid values.
+
+    Other exposures stay at fixed_quantile. With ``center=True``, subtract the
+    profile with all exposures at their medians. Grids use original units.
+    """
     z = _training(fit)
     if len(variables) != 2:
         raise ValueError('variables must contain exactly two distinct exposures')
@@ -265,7 +279,11 @@ def bivariate_response(fit, variables=(0, 1), grids=None, points=20,
 def single_exposure_effects(fit, quantiles=(.25, .75),
                             fixed_quantiles=(.25, .5, .75), scale='latent', X=None,
                             probability=.95, max_draws=None, seed=None):
-    """High-minus-low exposure contrasts at each background quantile."""
+    """Compare high and low quantiles of each exposure.
+
+    Hold every other exposure at each requested background quantile in turn.
+    Return the high prediction minus the low prediction.
+    """
     z = _training(fit)
     low, high = _quantiles(quantiles, 'quantiles', pair=True)
     fixed = _quantiles(fixed_quantiles, 'fixed_quantiles')
@@ -286,11 +304,13 @@ def single_exposure_effects(fit, quantiles=(.25, .75),
 def interaction_effects(fit, variables=None, quantiles=(.25, .75),
                         fixed_quantile=.5, scale='latent', X=None,
                         probability=.95, max_draws=None, seed=None):
-    """Pairwise differences of differences: (HH-LH) - (HL-LL).
+    """Compare high-minus-low changes in one exposure at two levels of another.
 
-    ``variables`` selects exposures by index or name. All unordered pairs in
-    that selection are returned. Other exposures stay at fixed_quantile.
-    This pairwise quantity differs from R's all-background interaction summary.
+    For each selected pair, return (HH-LH) - (HL-LL), where H and L are the
+    high and low quantiles. The first letter gives the first exposure's level.
+    ``variables`` selects exposures by index or name; every unordered pair is
+    returned once. Other exposures stay at fixed_quantile. R bkmr instead uses
+    an interaction summary that changes all background exposures together.
     """
     z = _training(fit)
     low, high = _quantiles(quantiles, 'quantiles', pair=True)

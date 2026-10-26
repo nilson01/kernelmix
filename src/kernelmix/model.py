@@ -212,33 +212,39 @@ def fit(
     subject=None,
     n_causes=None,
 ):
-    """Fit Bayesian kernel machine regression using sequential chains.
+    """Fit Bayesian kernel machine regression with chains run one after another.
 
-    ``draws`` counts retained states per chain after ``warmup`` and ``thin``.
-    The probit model fixes residual variance at one. ``selection='group'``
-    permits at most one exposure per included group. Relevance bounds and
-    defaults are documented in :class:`Prior`. Dense storage/solves require
-    quadratic memory and cubic time in the retained sample size.
+    Rows of Z are exposure profiles z; rows of X are adjustment covariates x.
+    The exposure function h can describe nonlinear associations and interactions;
+    beta gives the linear adjustment coefficients. A kernel describes similarity
+    between exposure profiles. A Gaussian process (GP) prior uses it to model h.
+    Relevance r_m controls exposure m's contribution
+    to that similarity. Group selection permits at most one active exposure in
+    each included group.
 
-    For the default Gaussian/probit sampler, ``initial`` is a shared dictionary
-    (beta, r, lambda, sigma2, delta, pi, and binomial ystar).
-    ``proposal_scales`` accepts positive log-scale standard deviations ``r``
-    and ``lambda`` (defaults .3). They are fixed,
-    including after warmup. Initial values and proposal keys for other samplers
-    are described in the model and structured-model guides.
-    ``cluster`` supplies observation-cluster labels for a random intercept;
-    in the default Gaussian/probit sampler, its sampled amplitude is
-    ``lambda_cluster`` (proposal scale ``cluster_lambda``). ``offset`` is for
-    count models, and ``event``/``baseline_breaks`` are for survival models.
-    Count and survival fits use proper coefficient priors and family-specific
-    amplitude defaults; see the model guide. Survival uses a piecewise-
-    exponential proportional-hazards model with right censoring.
+    ``draws`` counts saved states per chain after ``warmup`` and ``thin``.
+    The probit model fixes residual variance at one. Dense calculations store
+    matrices with one row and column per retained observation and require roughly
+    cubic work in that observation count. A successful fit does not prove that
+    the chains have converged.
+
+    For the default Gaussian/probit sampler, ``initial`` accepts beta, r,
+    lambda, sigma2, delta and pi; probit also accepts ystar. ``proposal_scales``
+    sets fixed log-scale proposal standard deviations for r and lambda, each
+    0.3 by default. Other samplers' keys and defaults are in the model guides.
+    ``cluster`` adds a random intercept shared by observations with the same
+    label. ``offset`` is a count log offset; survival uses event and baseline_breaks.
+
+    The paper's tau is the variance multiplying the kernel. The default
+    Gaussian/probit sampler stores ``lambda=tau/sigma2`` and ``lambda_cluster``
+    as the random-intercept variance divided by sigma2. Default count/survival
+    samplers store those variances directly and use normal coefficient priors.
+
     Alternative kernels, finite GP bases, random slopes, residual correlation,
-    variance regression, extended survival inputs, or nondefault structured
-    settings (such as ``random_scale``) use the structured sampler with
-    separately documented proper priors and direct GP variance. See the
-    structured-model guide for these input and prediction contracts.
-    Fitting does not establish convergence.
+    variance regression, extended survival inputs or nondefault structured
+    settings (such as random_scale) select the structured sampler. It stores
+    ``lambda=tau`` directly and uses separate priors. The structured-model guide
+    defines these inputs, initialization shapes and prediction requirements.
     """
     if not isinstance(kernel, str) or kernel not in ("gaussian", "matern32", "rational_quadratic"):
         raise ValueError("kernel must be gaussian, matern32 or rational_quadratic")
