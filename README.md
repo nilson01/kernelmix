@@ -1,5 +1,10 @@
 # KernelMix
 
+[![Tests](https://github.com/nilson01/kernelmix/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/nilson01/kernelmix/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/kernelmix?style=flat-square)](https://pypi.org/project/kernelmix/)
+[![Weekly downloads](https://img.shields.io/pypi/dw/kernelmix?style=flat-square)](https://pypistats.org/packages/kernelmix)
+[![License: GPL-2.0-only](https://img.shields.io/badge/license-GPL--2.0--only-blue?style=flat-square)](https://github.com/nilson01/kernelmix/blob/main/LICENSE)
+
 KernelMix fits Bayesian kernel machine regression (BKMR) for exposure mixtures in Python.
 It models how an outcome varies with several exposures together, allowing curved associations and interactions between exposures. Other measured variables enter as linear adjustment terms.
 
