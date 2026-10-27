@@ -52,7 +52,12 @@ jobs:
         run: |
           import glob, subprocess, sys
           subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-deps', glob.glob('dist/*.whl')[0]])
+      - name: Install coverage tool
+        if: runner.os == 'Linux' && matrix.python == '3.14'
+        run: python -m pip install 'coverage>=7.10,<8'
       - name: Test installed distribution outside checkout
+        env:
+          COLLECT_COVERAGE: ${{ runner.os == 'Linux' && matrix.python == '3.14' && '1' || '' }}
         shell: python
         run: |
           import os, pathlib, shutil, subprocess, sys, tempfile
@@ -62,4 +67,21 @@ jobs:
               shutil.copytree(root/'tests', dest/'tests')
               shutil.copytree(root/'tools', dest/'tools')
               subprocess.check_call([sys.executable, '-c', 'import kernelmix; print(kernelmix.__file__)'], cwd=dest)
-              subprocess.check_call([sys.executable, '-m', 'pytest', 'tests', '-q', '--junitxml=results.xml'], cwd=dest)
+              measure = os.environ.get('COLLECT_COVERAGE') == '1'
+              runner = ['coverage', 'run', '--branch', '--source=kernelmix', '-m', 'pytest'] if measure else ['pytest']
+              subprocess.run([sys.executable, '-m', *runner, *['tests', '-q', '--junitxml=results.xml']], cwd=dest, check=True)
+              if measure:
+                  report = pathlib.Path(os.environ['RUNNER_TEMP']) / 'coverage'
+                  report.mkdir(exist_ok=True)
+                  subprocess.run([sys.executable, '-m', 'coverage', 'xml', '-o', str(report / 'coverage.xml'), '--fail-under=1'], cwd=dest, check=True)
+                  with (report / 'coverage.txt').open('w') as output:
+                      subprocess.run([sys.executable, '-m', 'coverage', 'report', '-m'], cwd=dest, stdout=output, check=True)
+                  print((report / 'coverage.txt').read_text())
+      - name: Save test coverage report
+        if: always() && runner.os == 'Linux' && matrix.python == '3.14'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-coverage
+          path: ${{ runner.temp }}/coverage/
+          if-no-files-found: error
+          retention-days: 14
