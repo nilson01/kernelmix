@@ -71,3 +71,10 @@ The [common questions](https://nilson01.github.io/kernelmix/faq/) explain predic
 [Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/kxu058) introduced BKMR for exposure-mixture analysis. [Bobb et al. (2018)](https://doi.org/10.1186/s12940-018-0413-y) described the R software and its binary-outcome extension. KernelMix implements these methods separately in Python and adds count and survival likelihoods, defined in the [model guide](https://nilson01.github.io/kernelmix/methods/).
 
 We compare selected Gaussian and probit posterior summaries and conditional calculations, including random intercepts, with installed R [`bkmr`](https://cran.r-project.org/package=bkmr) 0.2.2. The [evidence summary](https://nilson01.github.io/kernelmix/reproduction/) records results and limits. See [NOTICE](https://github.com/nilson01/kernelmix/blob/main/NOTICE) for attribution and [LICENSE](https://github.com/nilson01/kernelmix/blob/main/LICENSE) for GPL-2.0-only terms.
+
+## Acknowledgements
+
+Computations were performed on the Arseven Computing Cluster, Department of
+Statistics, Texas A&M University.
+
+This work received no grant funding.
