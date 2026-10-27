@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "Please cite KernelMix and the method papers listed in the README."
+message: "Please cite the package paper and the statistical methods used, and record the software version."
 title: "KernelMix: Bayesian kernel machine regression for exposure mixtures"
 type: software
 version: 0.3.1
@@ -8,3 +8,13 @@ authors:
     given-names: Nilson
 repository-code: "https://github.com/nilson01/kernelmix"
 license: GPL-2.0-only
+preferred-citation:
+  type: generic
+  title: "KernelMix: Bayesian kernel machine regression in Python"
+  authors:
+    - family-names: Chapagain
+      given-names: Nilson
+      orcid: https://orcid.org/0000-0003-2962-2949
+  year: 2026
+  url: https://www.researchgate.net/publication/416822910_KernelMix_Bayesian_kernel_machine_regression_in_Python
+  notes: Preprint

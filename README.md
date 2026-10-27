@@ -66,6 +66,22 @@ Browse the [searchable documentation](https://nilson01.github.io/kernelmix/).
 
 The [common questions](https://nilson01.github.io/kernelmix/faq/) explain prediction scales, missing values, selection and diagnostics. The [observed ozone example](https://nilson01.github.io/kernelmix/airquality/) includes source data and saved results. Download the [reference manual](https://nilson01.github.io/kernelmix/manual.pdf) for offline reading. Contributors can find [development checks](https://nilson01.github.io/kernelmix/development/) separately.
 
+## Citation
+
+Chapagain, N. (2026). [KernelMix: Bayesian kernel machine regression in Python](https://www.researchgate.net/publication/416822910_KernelMix_Bayesian_kernel_machine_regression_in_Python). Preprint.
+
+Cite the statistical methods used and record the KernelMix version.
+
+```bibtex
+@misc{chapagain2026kernelmix,
+  author = {Chapagain, Nilson},
+  title = {{KernelMix: Bayesian kernel machine regression in Python}},
+  year = {2026},
+  howpublished = {Preprint, ResearchGate},
+  url = {https://www.researchgate.net/publication/416822910_KernelMix_Bayesian_kernel_machine_regression_in_Python}
+}
+```
+
 ## References and license
 
 [Bobb et al. (2015)](https://doi.org/10.1093/biostatistics/kxu058) introduced BKMR for exposure-mixture analysis. [Bobb et al. (2018)](https://doi.org/10.1186/s12940-018-0413-y) described the R software and its binary-outcome extension. KernelMix implements these methods separately in Python and adds count and survival likelihoods, defined in the [model guide](https://nilson01.github.io/kernelmix/methods/).
